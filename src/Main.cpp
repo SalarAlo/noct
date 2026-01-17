@@ -1,6 +1,5 @@
-#include <iostream>
+#include "noct/Run.h"
 
-int main() {
-	std::cout << "Hello, Noct!" << std::endl;
-	return 0;
+int main(int argc, char** argv) {
+	Noct::Run(argc, argv);
 }
