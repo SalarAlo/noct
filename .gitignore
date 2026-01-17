@@ -1,0 +1,19 @@
+
+# Build artifacts
+/build/
+
+# CMake generated files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+compile_commands.json
+
+# Executables
+Noct
+
+# Editor / tooling
+.clangd/
+.cache/
+
+# OS junk
+.DS_Store
