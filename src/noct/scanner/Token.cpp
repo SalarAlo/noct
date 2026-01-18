@@ -1,4 +1,4 @@
-#include "Token.h"
+#include "noct/scanner/Token.h"
 #include <sstream>
 
 namespace Noct {

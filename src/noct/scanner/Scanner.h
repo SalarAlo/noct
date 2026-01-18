@@ -1,8 +1,8 @@
 #pragma once
 
 #include "noct/Context.h"
-#include "noct/Token.h"
-#include "noct/TokenType.h"
+#include "noct/scanner/Token.h"
+#include "noct/scanner/TokenType.h"
 #include <string>
 #include <variant>
 #include <vector>

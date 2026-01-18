@@ -1,9 +1,9 @@
-#include "noct/Scanner.h"
+#include "noct/scanner/Scanner.h"
 
 #include <charconv>
 
-#include "noct/TokenType.h"
-#include "noct/Keywords.h"
+#include "noct/scanner/TokenType.h"
+#include "noct/scanner/Keywords.h"
 
 namespace Noct {
 

@@ -4,7 +4,7 @@
 #include <variant>
 #include <cstddef>
 
-#include "noct/TokenType.h"
+#include "noct/scanner/TokenType.h"
 
 namespace Noct {
 

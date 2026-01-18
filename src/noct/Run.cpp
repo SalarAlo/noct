@@ -6,6 +6,9 @@
 
 #include "noct/Context.h"
 #include "noct/Logger.h"
+#include "noct/parser/Parser.h"
+#include "noct/parser/PrintVisitor.h"
+#include "noct/scanner/Scanner.h"
 
 namespace Noct {
 
@@ -24,6 +27,18 @@ namespace {
 
 		while (std::getline(f, line))
 			contents.append(line).append("\n");
+
+		Scanner scanner { contents, context };
+		Parser parser { scanner.ScanTokens(), context };
+		PrintVisitor vistor {};
+
+		auto ast = parser.Parse();
+
+		if (!ast) {
+			return;
+		}
+
+		vistor.Visit(std::move(ast));
 	}
 
 	static void RunPrompt(Context& ctx) {

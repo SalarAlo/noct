@@ -2,7 +2,7 @@
 
 #include <string_view>
 #include <unordered_map>
-#include "TokenType.h"
+#include "noct/scanner/TokenType.h"
 
 namespace Noct {
 
