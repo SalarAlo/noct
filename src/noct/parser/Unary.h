@@ -4,8 +4,8 @@
 
 #include "noct/parser/Expression.h"
 
-#include "noct/scanner/Token.h"
-#include "noct/scanner/TokenType.h"
+#include "noct/lexer/Token.h"
+#include "noct/lexer/TokenType.h"
 
 namespace Noct {
 struct Unary : Expression {

@@ -2,7 +2,7 @@
 
 #include "noct/parser/Expression.h"
 #include "noct/parser/Visitor.h"
-#include "noct/scanner/Token.h"
+#include "noct/lexer/Token.h"
 
 namespace Noct {
 struct Literal : Expression {

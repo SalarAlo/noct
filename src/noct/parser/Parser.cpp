@@ -1,41 +1,106 @@
 #include "noct/parser/Parser.h"
 
+#include <memory>
 #include <stdexcept>
 
+#include "noct/lexer/TokenType.h"
 #include "noct/parser/Binary.h"
 #include "noct/parser/Grouping.h"
 #include "noct/parser/Literal.h"
+#include "noct/parser/Ternary.h"
 #include "noct/parser/Unary.h"
 
 using enum Noct::TokenType;
 
 namespace Noct {
 
+const std::set<TokenType> Parser::s_BinaryTokenTypes {
+	TokenType::Comma,
+	TokenType::BangEqual,
+	TokenType::EqualEqual,
+	TokenType::Greater,
+	TokenType::GreaterEqual,
+	TokenType::Less,
+	TokenType::LessEqual,
+	TokenType::Plus,
+	TokenType::Star,
+	TokenType::Slash,
+};
+
 Parser::Parser(const std::vector<Token>& tokens, Context& ctx)
     : m_Tokens(tokens)
-    , m_Context(ctx) { }
+    , m_Context(ctx) { };
+
+void Parser::Synchronize() {
+	Advance();
+
+	while (!IsAtEnd()) {
+		if (GetPrevious().Type == Semicolon)
+			return;
+
+		switch (GetCurrent().Type) {
+		case Class:
+		case Fun:
+		case Var:
+		case For:
+		case If:
+		case While:
+		case Print:
+		case Return:
+			return;
+		default:
+			Advance();
+		}
+	}
+}
 
 std::unique_ptr<Expression> Parser::Parse() {
 	try {
-		auto expr = Expr();
-		Consume(Eof, "Unexpected tokens after expression");
-		return expr;
+		auto out { Expr() };
+		if (!MatchCurrent(Eof)) {
+			m_Context.RegisterSourceCodeError(0, "Unexpected junk after expression");
+		}
+		return out;
 	} catch (const std::exception& e) {
-		m_Context.RegisterSourceCodeError(0, e.what());
 		return nullptr;
 	}
 }
 
 std::unique_ptr<Expression> Parser::Expr() {
-	return Equality();
+	return Comma();
+}
+
+std::unique_ptr<Expression> Parser::Comma() {
+	auto left { Ternary() };
+
+	while (MatchCurrent(TokenType::Comma)) {
+		auto commaOperator { GetPrevious() };
+		auto right { Ternary() };
+		left = std::make_unique<Binary>(std::move(left), commaOperator, std::move(right));
+	}
+
+	return left;
+}
+
+std::unique_ptr<Expression> Parser::Ternary() {
+	auto condition { Equality() };
+
+	if (MatchCurrent(TokenType::QuestionMark)) {
+		auto trueExpr { Expr() };
+		Consume(TokenType::Colon, "Expcted ':' after '?'");
+		auto falseExpr { Ternary() };
+		condition = std::make_unique<Noct::Ternary>(std::move(condition), std::move(trueExpr), std::move(falseExpr));
+	}
+
+	return condition;
 }
 
 std::unique_ptr<Expression> Parser::Equality() {
-	auto left = Comparison();
+	auto left { Comparison() };
 
 	while (MatchAny({ BangEqual, EqualEqual })) {
-		Token op = GetPrevious();
-		auto right = Comparison();
+		auto op { GetPrevious() };
+		auto right { Comparison() };
 		left = std::make_unique<Binary>(std::move(left), op, std::move(right));
 	}
 
@@ -43,11 +108,11 @@ std::unique_ptr<Expression> Parser::Equality() {
 }
 
 std::unique_ptr<Expression> Parser::Comparison() {
-	auto left = Term();
+	auto left { Term() };
 
 	while (MatchAny({ Greater, GreaterEqual, Less, LessEqual })) {
-		Token op = GetPrevious();
-		auto right = Term();
+		auto op { GetPrevious() };
+		auto right { Term() };
 		left = std::make_unique<Binary>(std::move(left), op, std::move(right));
 	}
 
@@ -55,11 +120,11 @@ std::unique_ptr<Expression> Parser::Comparison() {
 }
 
 std::unique_ptr<Expression> Parser::Term() {
-	auto left = Factor();
+	auto left { Factor() };
 
-	while (MatchAny({ Minus, Plus })) {
-		Token op = GetPrevious();
-		auto right = Factor();
+	while (MatchAny({ Plus, Minus })) {
+		auto op { GetPrevious() };
+		auto right { Factor() };
 		left = std::make_unique<Binary>(std::move(left), op, std::move(right));
 	}
 
@@ -67,11 +132,11 @@ std::unique_ptr<Expression> Parser::Term() {
 }
 
 std::unique_ptr<Expression> Parser::Factor() {
-	auto left = Unary();
+	auto left { Unary() };
 
-	while (MatchAny({ Slash, Star })) {
-		Token op = GetPrevious();
-		auto right = Unary();
+	while (MatchAny({ Star, Slash })) {
+		auto op { GetPrevious() };
+		auto right { Unary() };
 		left = std::make_unique<Binary>(std::move(left), op, std::move(right));
 	}
 
@@ -79,9 +144,9 @@ std::unique_ptr<Expression> Parser::Factor() {
 }
 
 std::unique_ptr<Expression> Parser::Unary() {
-	if (MatchAny({ Bang, Minus })) {
-		Token op = GetPrevious();
-		auto right = Unary();
+	if (MatchAny({ Minus, Bang })) {
+		auto op { GetPrevious() };
+		auto right { Unary() };
 		return std::make_unique<Noct::Unary>(op, std::move(right));
 	}
 
@@ -89,40 +154,56 @@ std::unique_ptr<Expression> Parser::Unary() {
 }
 
 std::unique_ptr<Expression> Parser::Primary() {
-	if (MatchAny({ False }))
-		return std::make_unique<Literal>(false);
-
-	if (MatchAny({ True }))
-		return std::make_unique<Literal>(true);
-
-	if (MatchAny({ Nil }))
-		return std::make_unique<Literal>(std::monostate {});
-
-	if (MatchAny({ Number, String }))
-		return std::make_unique<Literal>(GetPrevious().Literal);
-
-	if (MatchAny({ LeftParen })) {
-		auto expr = Expr();
-		Consume(RightParen, "Expect ')' after expression");
-		return std::make_unique<Grouping>(std::move(expr));
+	if (s_BinaryTokenTypes.contains(GetCurrent().Type)) {
+		const Token falsyOperator { Advance() };
+		// TODO: Register Error Properly
+		return nullptr;
 	}
 
-	m_Context.RegisterTokenError(GetCurrent(), "Expected expression");
-	throw std::logic_error("Expected expression");
+	if (MatchCurrent(True)) {
+		return std::make_unique<Literal>(true);
+	}
+
+	if (MatchCurrent(False)) {
+		return std::make_unique<Literal>(false);
+	}
+
+	if (MatchCurrent(Nil)) {
+		return std::make_unique<Literal>(std::monostate {});
+	}
+
+	if (MatchAny({ String, Number })) {
+		return std::make_unique<Literal>(GetPrevious().Literal);
+	}
+
+	if (MatchCurrent(LeftParen)) {
+		auto guts { Expr() };
+		Consume(RightParen, "Expected ')' after expression");
+		return std::make_unique<Grouping>(std::move(guts));
+	}
+
+	throw std::logic_error("Expected Expression");
 }
 
-bool Parser::MatchAny(std::initializer_list<TokenType> types) {
-	for (TokenType t : types) {
-		if (MatchCurrent(t)) {
+bool Parser::MatchAny(const std::initializer_list<TokenType>& types) {
+	auto current { GetCurrent() };
+
+	for (const auto& t : types) {
+		if (t == current.Type) {
 			Advance();
 			return true;
 		}
 	}
+
 	return false;
 }
 
-bool Parser::MatchCurrent(TokenType type) const {
-	return !IsAtEnd() && GetCurrent().Type == type;
+bool Parser::MatchCurrent(TokenType type) {
+	if (GetCurrent().Type == type) {
+		Advance();
+		return true;
+	}
+	return false;
 }
 
 bool Parser::IsAtEnd() const {
@@ -130,22 +211,25 @@ bool Parser::IsAtEnd() const {
 }
 
 Token Parser::Advance() {
-	if (!IsAtEnd())
-		++m_Current;
-	return GetPrevious();
+	if (IsAtEnd()) {
+		return GetPrevious();
+	}
+
+	return m_Tokens[m_Current++];
 }
 
 Token Parser::Consume(TokenType type, std::string_view msg) {
-	if (MatchCurrent(type))
-		return Advance();
+	if (MatchCurrent(type)) {
+		return GetPrevious();
+	}
 
-	m_Context.RegisterTokenError(GetCurrent(), msg);
 	throw std::logic_error(msg.data());
 }
 
 Token Parser::GetCurrent() const {
 	if (IsAtEnd())
 		return GetPrevious();
+
 	return m_Tokens[m_Current];
 }
 

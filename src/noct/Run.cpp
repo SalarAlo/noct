@@ -8,7 +8,7 @@
 #include "noct/Logger.h"
 #include "noct/parser/Parser.h"
 #include "noct/parser/PrintVisitor.h"
-#include "noct/scanner/Scanner.h"
+#include "noct/lexer/Lexer.h"
 
 namespace Noct {
 
@@ -28,8 +28,8 @@ namespace {
 		while (std::getline(f, line))
 			contents.append(line).append("\n");
 
-		Scanner scanner { contents, context };
-		Parser parser { scanner.ScanTokens(), context };
+		Lexer lexer { contents, context };
+		Parser parser { lexer.ScanTokens(), context };
 		PrintVisitor vistor {};
 
 		auto ast = parser.Parse();

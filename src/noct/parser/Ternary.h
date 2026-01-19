@@ -1,3 +1,4 @@
+
 #pragma once
 
 #include <memory>
@@ -5,19 +6,16 @@
 #include "noct/parser/Expression.h"
 #include "noct/parser/Visitor.h"
 
-#include "noct/lexer/Token.h"
-#include "noct/lexer/TokenType.h"
-
 namespace Noct {
-struct Binary : Expression {
-	Binary(std::unique_ptr<Expression> l, const Token& op, std::unique_ptr<Expression> r)
+struct Ternary : Expression {
+	Ternary(std::unique_ptr<Expression> c, std::unique_ptr<Expression> l, std::unique_ptr<Expression> r)
 	    : Left(std::move(l))
-	    , Operator(op)
-	    , Right(std::move(r)) { }
+	    , Right(std::move(r))
+	    , Condition(std::move(c)) { }
 
 	std::unique_ptr<Expression> Left { nullptr };
 	std::unique_ptr<Expression> Right { nullptr };
-	Token Operator { TokenType::Nil, "", std::monostate {}, 0 };
+	std::unique_ptr<Expression> Condition { nullptr };
 
 	void Accept(Visitor& v) const override { v.Visit(*this); }
 };

@@ -1,13 +1,13 @@
-#include "noct/scanner/Scanner.h"
+#include "noct/lexer/Lexer.h"
 
 #include <charconv>
 
-#include "noct/scanner/TokenType.h"
-#include "noct/scanner/Keywords.h"
+#include "noct/lexer/TokenType.h"
+#include "noct/lexer/Keywords.h"
 
 namespace Noct {
 
-const std::vector<Token>& Scanner::ScanTokens() {
+const std::vector<Token>& Lexer::ScanTokens() {
 	while (!IsAtEnd()) {
 		m_Start = m_Current;
 		ScanToken();
@@ -17,7 +17,7 @@ const std::vector<Token>& Scanner::ScanTokens() {
 	return m_Tokens;
 }
 
-void Scanner::ScanToken() {
+void Lexer::ScanToken() {
 	char currentCharacter { Advance() };
 	switch (currentCharacter) {
 #pragma region Single Character Tokens
@@ -50,6 +50,12 @@ void Scanner::ScanToken() {
 		break;
 	case '*':
 		AddToken(TokenType::Star);
+		break;
+	case '?':
+		AddToken(TokenType::QuestionMark);
+		break;
+	case ':':
+		AddToken(TokenType::Colon);
 		break;
 #pragma endregion
 #pragma region Multi Character Tokens
@@ -108,24 +114,24 @@ void Scanner::ScanToken() {
 	}
 }
 
-char Scanner::Peek() const {
+char Lexer::Peek() const {
 	if (IsAtEnd())
 		return 0;
 
 	return m_Source[m_Current];
 }
-char Scanner::PeekNext() const {
+char Lexer::PeekNext() const {
 	if (m_Current + 1 >= m_Source.size())
 		return 0;
 
 	return m_Source[m_Current + 1];
 }
 
-char Scanner::Advance() {
+char Lexer::Advance() {
 	return m_Source[m_Current++];
 }
 
-void Scanner::HandleString() {
+void Lexer::HandleString() {
 	while (!IsAtEnd() && Peek() != '"') {
 		// supporting multi line strings
 		if (Peek() == '\n') {
@@ -146,7 +152,7 @@ void Scanner::HandleString() {
 	AddToken(TokenType::String, value);
 }
 
-void Scanner::HandleNumber() {
+void Lexer::HandleNumber() {
 	while (IsDigit(Peek()))
 		Advance();
 	if (Peek() == '.' && IsDigit(PeekNext())) {
@@ -165,7 +171,7 @@ void Scanner::HandleNumber() {
 	AddToken(TokenType::Number, value);
 }
 
-void Scanner::HandleIdentifier() {
+void Lexer::HandleIdentifier() {
 	while (IsAlphaNumeric(Peek()))
 		Advance();
 
@@ -178,7 +184,7 @@ void Scanner::HandleIdentifier() {
 	AddToken(TokenType::Identifier);
 }
 
-void Scanner::HandleMultiLineComment() {
+void Lexer::HandleMultiLineComment() {
 	while (!IsAtEnd()) {
 		if (Peek() == '*' && PeekNext() == '/')
 			break;
@@ -199,23 +205,23 @@ void Scanner::HandleMultiLineComment() {
 	Advance();
 }
 
-bool Scanner::IsDigit(char c) {
+bool Lexer::IsDigit(char c) {
 	return c <= '9' && c >= '0';
 }
 
-bool Scanner::IsAlpha(char c) {
+bool Lexer::IsAlpha(char c) {
 	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
 }
 
-bool Scanner::IsAlphaNumeric(char c) {
+bool Lexer::IsAlphaNumeric(char c) {
 	return IsAlpha(c) || IsDigit(c);
 }
 
-bool Scanner::IsAtEnd() const {
+bool Lexer::IsAtEnd() const {
 	return m_Current >= m_Source.length();
 }
 
-bool Scanner::Match(char match) {
+bool Lexer::Match(char match) {
 	if (IsAtEnd())
 		return false;
 
@@ -226,12 +232,12 @@ bool Scanner::Match(char match) {
 	return true;
 }
 
-void Scanner::AddToken(TokenType type, NoctLiteral noctLiteral) {
+void Lexer::AddToken(TokenType type, NoctLiteral noctLiteral) {
 	auto lexeme { CurrentSubstring() };
 	m_Tokens.emplace_back(type, lexeme, noctLiteral, m_Line);
 }
 
-std::string Scanner::CurrentSubstring() const {
+std::string Lexer::CurrentSubstring() const {
 	return m_Source.substr(m_Start, m_Current - m_Start);
 }
 

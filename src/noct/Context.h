@@ -4,7 +4,7 @@
 #include <span>
 #include <string_view>
 
-#include "noct/scanner/Token.h"
+#include "noct/lexer/Token.h"
 
 namespace Noct {
 

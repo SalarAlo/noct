@@ -8,6 +8,7 @@ enum class TokenType {
     LeftParen, RightParen,
     LeftBrace, RightBrace,
     Comma, Dot, Minus, Plus, Semicolon, Slash, Star,
+    QuestionMark, Colon,
 
     Bang, BangEqual,
     Equal, EqualEqual,

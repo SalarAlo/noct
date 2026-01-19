@@ -1,17 +1,17 @@
 #pragma once
 
 #include "noct/Context.h"
-#include "noct/scanner/Token.h"
-#include "noct/scanner/TokenType.h"
+#include "noct/lexer/Token.h"
+#include "noct/lexer/TokenType.h"
 #include <string>
 #include <variant>
 #include <vector>
 
 namespace Noct {
 
-class Scanner {
+class Lexer {
 public:
-	Scanner(std::string_view source, Context& context)
+	Lexer(std::string_view source, Context& context)
 	    : m_Source(source)
 	    , m_Context(context) { };
 
