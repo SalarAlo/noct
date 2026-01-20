@@ -28,6 +28,8 @@ private:
 	std::unique_ptr<Expression> Unary();
 	std::unique_ptr<Expression> Primary();
 
+	std::unique_ptr<Expression> RecoverRhs(TokenType type);
+
 	void Synchronize();
 
 	bool MatchAny(const std::initializer_list<TokenType>& types);

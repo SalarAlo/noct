@@ -3,6 +3,7 @@
 #include <memory>
 #include <stdexcept>
 
+#include "noct/Helpers.h"
 #include "noct/lexer/TokenType.h"
 #include "noct/parser/Binary.h"
 #include "noct/parser/Grouping.h"
@@ -156,8 +157,12 @@ std::unique_ptr<Expression> Parser::Unary() {
 std::unique_ptr<Expression> Parser::Primary() {
 	if (s_BinaryTokenTypes.contains(GetCurrent().Type)) {
 		const Token falsyOperator { Advance() };
-		// TODO: Register Error Properly
-		return nullptr;
+
+		std::string errorMsg { "Missing left hand operand before binary operator " };
+		errorMsg.append(ToString(falsyOperator.Type));
+
+		m_Context.RegisterSourceCodeError(falsyOperator.Line, errorMsg);
+		return RecoverRhs(falsyOperator.Type);
 	}
 
 	if (MatchCurrent(True)) {
@@ -183,6 +188,34 @@ std::unique_ptr<Expression> Parser::Primary() {
 	}
 
 	throw std::logic_error("Expected Expression");
+}
+
+std::unique_ptr<Expression> Parser::RecoverRhs(TokenType type) {
+	switch (type) {
+	case TokenType::Comma:
+		return Ternary();
+
+	case TokenType::BangEqual:
+	case TokenType::EqualEqual:
+		return Comparison();
+
+	case TokenType::Greater:
+	case TokenType::GreaterEqual:
+	case TokenType::Less:
+	case TokenType::LessEqual:
+		return Term();
+
+	case TokenType::Plus:
+	case TokenType::Minus:
+		return Factor();
+
+	case TokenType::Star:
+	case TokenType::Slash:
+		return Unary();
+
+	default:
+		return Expr();
+	}
 }
 
 bool Parser::MatchAny(const std::initializer_list<TokenType>& types) {

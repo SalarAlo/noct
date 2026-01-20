@@ -7,6 +7,7 @@ struct Literal;
 struct Grouping;
 struct Ternary;
 
+// TODO: Possible remove this and just use a callable + std::variant
 struct Visitor {
 	virtual ~Visitor() = default;
 

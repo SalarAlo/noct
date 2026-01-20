@@ -3,9 +3,11 @@
 #include <cstddef>
 #include <filesystem>
 #include <fstream>
+#include <variant>
 
 #include "noct/Context.h"
 #include "noct/Logger.h"
+#include "noct/parser/Interpreter.h"
 #include "noct/parser/Parser.h"
 #include "noct/parser/PrintVisitor.h"
 #include "noct/lexer/Lexer.h"
@@ -30,15 +32,19 @@ namespace {
 
 		Lexer lexer { contents, context };
 		Parser parser { lexer.ScanTokens(), context };
-		PrintVisitor vistor {};
+		PrintVisitor visitor {};
 
 		auto ast = parser.Parse();
 
 		if (!ast) {
+			Logger::Info("No AST");
 			return;
 		}
 
-		vistor.Visit(std::move(ast));
+		ast->Accept(visitor);
+
+		Interpreter interpreter {};
+		interpreter.Interpret(*ast);
 	}
 
 	static void RunPrompt(Context& ctx) {
