@@ -1,6 +1,7 @@
 #include "noct/lexer/Lexer.h"
 
 #include <charconv>
+#include <fmt/format.h>
 
 #include "noct/lexer/TokenType.h"
 #include "noct/lexer/Keywords.h"
@@ -106,7 +107,7 @@ void Lexer::ScanToken() {
 		} else if (IsAlpha(currentCharacter)) {
 			HandleIdentifier();
 		} else {
-			m_Context.RegisterSourceCodeError(m_Line, "Unexpected character!");
+			m_Context.RegisterSourceCodeError(m_Line, fmt::format("Unexpected character: '{}'", currentCharacter));
 		}
 		break;
 	}

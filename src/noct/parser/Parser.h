@@ -6,19 +6,34 @@
 #include <initializer_list>
 
 #include "noct/Context.h"
-#include "noct/parser/Expression.h"
+
 #include "noct/lexer/Token.h"
 #include "noct/lexer/TokenType.h"
+
+#include "noct/parser/expression/Expression.h"
+
+#include "noct/parser/statement/Statement.h"
+#include "noct/parser/statement/PrintStatement.h"
+#include "noct/parser/statement/ExpressionStatement.h"
+#include "noct/parser/statement/VariableDecleration.h"
 
 namespace Noct {
 
 class Parser {
 public:
 	Parser(const std::vector<Token>& tokens, Context& ctx);
-	std::unique_ptr<Expression> Parse();
+	std::vector<std::unique_ptr<Noct::Statement>> Parse();
 
 private:
+	std::unique_ptr<Noct::Statement> Stmt();
+	std::unique_ptr<Statement> Decleration();
+
+	std::unique_ptr<Noct::PrintStatement> PrintStmt();
+	std::unique_ptr<Noct::ExpressionStatement> ExpressionStmt();
+	std::unique_ptr<Noct::VariableDecleration> VariableDecl();
+
 	std::unique_ptr<Expression> Expr();
+	std::unique_ptr<Expression> Assignment();
 	std::unique_ptr<Expression> Comma();
 	std::unique_ptr<Expression> Ternary();
 	std::unique_ptr<Expression> Equality();

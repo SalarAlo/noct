@@ -1,6 +1,6 @@
 #pragma once
 
-#include "noct/parser/Expression.h"
+#include "noct/parser/expression/Expression.h"
 #include "noct/parser/Visitor.h"
 #include "noct/lexer/Token.h"
 
@@ -10,7 +10,7 @@ struct Literal : Expression {
 	    : Value(value) { }
 	NoctLiteral Value { std::monostate {} };
 
-	void Accept(Visitor& v) const override { v.Visit(*this); }
+	void Accept(ExpressionVisitor& v) const override { v.Visit(*this); }
 };
 
 }

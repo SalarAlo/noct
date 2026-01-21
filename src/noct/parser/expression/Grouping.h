@@ -2,7 +2,7 @@
 
 #include <memory>
 
-#include "noct/parser/Expression.h"
+#include "noct/parser/expression/Expression.h"
 #include "noct/parser/Visitor.h"
 
 namespace Noct {
@@ -11,7 +11,7 @@ struct Grouping : Expression {
 	    : GroupExpr(std::move(expr)) { }
 
 	std::unique_ptr<Expression> GroupExpr {};
-	void Accept(Visitor& v) const override { v.Visit(*this); }
+	void Accept(ExpressionVisitor& v) const override { v.Visit(*this); }
 };
 
 }

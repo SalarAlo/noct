@@ -1,23 +1,37 @@
 #include "noct/parser/Interpreter.h"
 
-#include "noct/Logger.h"
 #include "noct/exceptions/RuntimeException.h"
 #include "noct/lexer/Token.h"
 #include "noct/lexer/TokenType.h"
-#include "noct/parser/Expression.h"
-#include "noct/parser/Grouping.h"
-#include "noct/parser/Literal.h"
-#include "noct/parser/Unary.h"
-#include "noct/parser/Binary.h"
-#include "noct/parser/Ternary.h"
+
+#include "noct/parser/expression/Assign.h"
+#include "noct/parser/statement/ExpressionStatement.h"
+
+#include "noct/parser/expression/Expression.h"
+#include "noct/parser/expression/Grouping.h"
+#include "noct/parser/expression/Literal.h"
+#include "noct/parser/expression/LiteralStringifier.h"
+#include "noct/parser/expression/Unary.h"
+#include "noct/parser/expression/Binary.h"
+#include "noct/parser/expression/Ternary.h"
+#include "noct/parser/expression/Variable.h"
+#include "noct/parser/statement/ExpressionStatement.h"
+#include "noct/parser/statement/PrintStatement.h"
+#include "noct/parser/statement/Statement.h"
+#include "noct/parser/statement/VariableDecleration.h"
+
+#include <iostream>
+#include <memory>
+#include <string>
+#include <variant>
 
 namespace Noct {
 
-void Interpreter::Interpret(const Expression& exp) {
+void Interpreter::Interpret(const std::vector<std::unique_ptr<Statement>>& statements) {
 	try {
-		Evaluate(exp);
-		Logger::Info("");
-		Logger::Info("{}", Stringify(m_Value));
+		for (const auto& stmt : statements) {
+			Execute(*stmt);
+		}
 	} catch (RuntimeError& error) {
 		throw error;
 	}
@@ -25,6 +39,25 @@ void Interpreter::Interpret(const Expression& exp) {
 
 void Interpreter::Visit(const Grouping& group) {
 	Evaluate(*group.GroupExpr);
+}
+
+void Interpreter::Visit(const ExpressionStatement& expr) {
+	Evaluate(*expr.Expr);
+}
+
+void Interpreter::Visit(const PrintStatement& expr) {
+	Evaluate(*expr.Expr);
+	std::cout << std::visit(LiteralStringifier {}, m_Value) << std::endl;
+}
+
+void Interpreter::Visit(const VariableDecleration& decl) {
+	NoctLiteral obj {};
+	if (decl.Initialiser) {
+		Evaluate(*decl.Initialiser);
+		obj = m_Value;
+	}
+
+	m_Env.Define(decl.Name.Lexeme, obj);
 }
 
 void Interpreter::Visit(const Literal& literal) {
@@ -60,6 +93,12 @@ void Interpreter::Visit(const Binary& binary) {
 	auto rightDoublePtr = std::get_if<double>(&right);
 	auto leftDoublePtr = std::get_if<double>(&left);
 
+	auto rightStrPtr = std::get_if<std::string>(&right);
+	auto leftStrPtr = std::get_if<std::string>(&left);
+
+	auto rightBoolPtr = std::get_if<bool>(&right);
+	auto leftBoolPtr = std::get_if<bool>(&left);
+
 	m_Value = std::monostate {};
 
 	switch (binary.Operator.Type) {
@@ -68,23 +107,35 @@ void Interpreter::Visit(const Binary& binary) {
 		m_Value = *leftDoublePtr - *rightDoublePtr;
 		break;
 	case TokenType::Plus: {
-		auto rightStrPtr = std::get_if<std::string>(&right);
-		auto leftStrPtr = std::get_if<std::string>(&left);
-
 		if (rightStrPtr && leftStrPtr) {
 			m_Value = *leftStrPtr + *rightStrPtr;
-			return;
+			break;
+		}
+
+		if (rightStrPtr) {
+			m_Value = std::visit(LiteralStringifier {}, left) + *rightStrPtr;
+			break;
+		}
+
+		if (leftStrPtr) {
+			m_Value = *leftStrPtr + std::visit(LiteralStringifier {}, right);
+			break;
 		}
 
 		if (leftDoublePtr && rightDoublePtr) {
 			m_Value = *leftDoublePtr + *rightDoublePtr;
-			return;
+			break;
 		}
 
-		throw RuntimeError(binary.Operator, "Operands must be two numbers or two strings");
+		throw RuntimeError(binary.Operator, "Operands must be two numbers or at least one strings");
 	}
 	case TokenType::Slash:
 		EnsureNumbers(binary.Operator, rightDoublePtr, leftDoublePtr);
+
+		if (*rightDoublePtr == 0) {
+			throw RuntimeError(binary.Operator, "Right hand side of division operator is 0. Can not divide by 0");
+		}
+
 		m_Value = *leftDoublePtr / *rightDoublePtr;
 		break;
 	case TokenType::Star:
@@ -132,8 +183,21 @@ void Interpreter::Visit(const Ternary& ternary) {
 	}
 }
 
+void Interpreter::Visit(const Variable& var) {
+	m_Value = m_Env.Get(var.Name);
+}
+
+void Interpreter::Visit(const Assign& exp) {
+	Evaluate(*exp.value);
+	m_Env.Assign(exp.name, m_Value);
+}
+
 void Interpreter::Evaluate(const Expression& exp) {
 	exp.Accept(*this);
+}
+
+void Interpreter::Execute(const Statement& stmt) {
+	stmt.Accept(*this);
 }
 
 bool Interpreter::IsTruthy(const NoctLiteral& literal) {
@@ -143,6 +207,13 @@ bool Interpreter::IsTruthy(const NoctLiteral& literal) {
 
 	if (auto boolPtr { std::get_if<bool>(&literal) }) {
 		return *boolPtr;
+	}
+
+	if (auto doublePtr { std::get_if<double>(&literal) }) {
+		return *doublePtr != 0;
+	}
+	if (auto strPtr { std::get_if<std::string>(&literal) }) {
+		return !strPtr->empty();
 	}
 
 	return true;
@@ -171,26 +242,6 @@ bool Interpreter::IsEqual(const NoctLiteral& left, const NoctLiteral& right) {
 		return value == std::get<T>(right);
 	},
 	    left);
-}
-
-std::string Interpreter::Stringify(const NoctLiteral& literal) const {
-	if (literal.index() == 0)
-		return "nil";
-
-	return std::visit([](const auto& value) -> std::string {
-		using T = std::decay_t<decltype(value)>;
-
-		if constexpr (std::is_same_v<T, std::string>) {
-			return value;
-		} else if constexpr (std::is_same_v<T, bool>) {
-			return value ? "true" : "false";
-		} else if constexpr (std::is_arithmetic_v<T>) {
-			return std::to_string(value);
-		} else {
-			return "";
-		}
-	},
-	    literal);
 }
 
 }

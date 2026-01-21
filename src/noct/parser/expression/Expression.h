@@ -1,12 +1,12 @@
 #pragma once
 
-#include "Visitor.h"
+#include "noct/parser/Visitor.h"
 
 namespace Noct {
 
 struct Expression {
 	virtual ~Expression() = default;
-	virtual void Accept(Visitor& v) const = 0;
+	virtual void Accept(ExpressionVisitor& v) const = 0;
 };
 
 }

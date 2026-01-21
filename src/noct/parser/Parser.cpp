@@ -4,12 +4,20 @@
 #include <stdexcept>
 
 #include "noct/Helpers.h"
+#include "noct/exceptions/RuntimeException.h"
 #include "noct/lexer/TokenType.h"
-#include "noct/parser/Binary.h"
-#include "noct/parser/Grouping.h"
-#include "noct/parser/Literal.h"
-#include "noct/parser/Ternary.h"
-#include "noct/parser/Unary.h"
+#include "noct/parser/statement/ExpressionStatement.h"
+#include "noct/parser/statement/PrintStatement.h"
+#include "noct/parser/statement/Statement.h"
+#include "noct/parser/statement/VariableDecleration.h"
+
+#include "noct/parser/expression/Binary.h"
+#include "noct/parser/expression/Grouping.h"
+#include "noct/parser/expression/Literal.h"
+#include "noct/parser/expression/Ternary.h"
+#include "noct/parser/expression/Unary.h"
+#include "noct/parser/expression/Assign.h"
+#include "noct/parser/expression/Variable.h"
 
 using enum Noct::TokenType;
 
@@ -55,20 +63,82 @@ void Parser::Synchronize() {
 	}
 }
 
-std::unique_ptr<Expression> Parser::Parse() {
+std::vector<std::unique_ptr<Statement>> Parser::Parse() {
+	std::vector<std::unique_ptr<Noct::Statement>> statements {};
+
 	try {
-		auto out { Expr() };
-		if (!MatchCurrent(Eof)) {
-			m_Context.RegisterSourceCodeError(0, "Unexpected junk after expression");
+		while (!IsAtEnd()) {
+			statements.push_back(Decleration());
 		}
-		return out;
+		return statements;
 	} catch (const std::exception& e) {
+		m_Context.RegisterSourceCodeError(0, e.what());
+		return {};
+	}
+}
+
+std::unique_ptr<Statement> Parser::Stmt() {
+	if (MatchCurrent(TokenType::Print))
+		return PrintStmt();
+
+	return ExpressionStmt();
+}
+
+std::unique_ptr<Statement> Parser::Decleration() {
+	try {
+		if (MatchCurrent(TokenType::Var))
+			return VariableDecl();
+
+		return Stmt();
+	} catch (const RuntimeError& e) {
+		Synchronize();
 		return nullptr;
 	}
 }
 
+std::unique_ptr<PrintStatement> Parser::PrintStmt() {
+	auto value { Expr() };
+	Consume(TokenType::Semicolon, "Semicolon (';') after print statemenet exprected");
+	return std::make_unique<PrintStatement>(std::move(value));
+}
+
+std::unique_ptr<ExpressionStatement> Parser::ExpressionStmt() {
+	auto value { Expr() };
+	Consume(TokenType::Semicolon, "Semicolon (';') after print statemenet exprected");
+	return std::make_unique<ExpressionStatement>(std::move(value));
+}
+
+std::unique_ptr<VariableDecleration> Parser::VariableDecl() {
+	Token name = Consume(TokenType::Identifier, "Expect variable name.");
+
+	std::unique_ptr<Expression> initializer = nullptr;
+	if (MatchCurrent(TokenType::Equal)) {
+		initializer = Expr();
+	}
+
+	Consume(Semicolon, "Expected ';' after variable decleration");
+	return std::make_unique<VariableDecleration>(name, std::move(initializer));
+}
+
 std::unique_ptr<Expression> Parser::Expr() {
-	return Comma();
+	return Assignment();
+}
+
+std::unique_ptr<Expression> Parser::Assignment() {
+	std::unique_ptr<Expression> expr { Comma() };
+
+	if (MatchCurrent(Equal)) {
+		Token equalOperator { GetPrevious() };
+		std::unique_ptr<Expression> lhs { Assignment() };
+
+		if (auto x = dynamic_cast<Variable*>(expr.get())) {
+			return std::make_unique<Assign>(x->Name, std::move(lhs));
+		}
+
+		throw std::logic_error("Invalid Assigment Target");
+	}
+
+	return expr;
 }
 
 std::unique_ptr<Expression> Parser::Comma() {
@@ -187,6 +257,10 @@ std::unique_ptr<Expression> Parser::Primary() {
 		return std::make_unique<Grouping>(std::move(guts));
 	}
 
+	if (MatchCurrent(Identifier)) {
+		return std::make_unique<Variable>(GetPrevious());
+	}
+
 	throw std::logic_error("Expected Expression");
 }
 
@@ -240,7 +314,7 @@ bool Parser::MatchCurrent(TokenType type) {
 }
 
 bool Parser::IsAtEnd() const {
-	return m_Current >= m_Tokens.size();
+	return m_Current < m_Tokens.size() ? m_Tokens[m_Current].Type == TokenType::Eof : false;
 }
 
 Token Parser::Advance() {

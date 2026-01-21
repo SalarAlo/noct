@@ -2,7 +2,7 @@
 
 #include <memory>
 
-#include "noct/parser/Expression.h"
+#include "noct/parser/expression/Expression.h"
 
 #include "noct/lexer/Token.h"
 #include "noct/lexer/TokenType.h"
@@ -18,7 +18,7 @@ struct Unary : Expression {
 	Token Operator { TokenType::Nil, "", std::monostate {}, 0 };
 	std::unique_ptr<Expression> Right { nullptr };
 
-	void Accept(Visitor& v) const override { v.Visit(*this); }
+	void Accept(ExpressionVisitor& v) const override { v.Visit(*this); }
 };
 
 }

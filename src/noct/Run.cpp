@@ -3,13 +3,11 @@
 #include <cstddef>
 #include <filesystem>
 #include <fstream>
-#include <variant>
 
 #include "noct/Context.h"
 #include "noct/Logger.h"
 #include "noct/parser/Interpreter.h"
 #include "noct/parser/Parser.h"
-#include "noct/parser/PrintVisitor.h"
 #include "noct/lexer/Lexer.h"
 
 namespace Noct {
@@ -32,19 +30,16 @@ namespace {
 
 		Lexer lexer { contents, context };
 		Parser parser { lexer.ScanTokens(), context };
-		PrintVisitor visitor {};
 
-		auto ast = parser.Parse();
+		auto statements = parser.Parse();
 
-		if (!ast) {
-			Logger::Info("No AST");
+		if (!statements.size()) {
+			Logger::Info("No statements");
 			return;
 		}
 
-		ast->Accept(visitor);
-
 		Interpreter interpreter {};
-		interpreter.Interpret(*ast);
+		interpreter.Interpret(statements);
 	}
 
 	static void RunPrompt(Context& ctx) {
