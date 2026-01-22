@@ -1,20 +1,13 @@
 #pragma once
 
-#include <charconv>
+#include <format>
 #include <string>
 #include <variant>
 
 namespace Noct {
 struct LiteralStringifier {
 	std::string operator()(const double& value) const {
-		char buffer[64];
-		auto [ptr, ec] = std::to_chars(
-		    buffer,
-		    buffer + sizeof(buffer),
-		    value,
-		    std::chars_format::general);
-
-		return std::string(buffer, ptr);
+		return std::format("{:g}", value);
 	}
 
 	std::string operator()(const std::string& value) const {

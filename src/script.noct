@@ -1,7 +1,2 @@
-print 28;
-print "hi";
-
-var x = 82;
-x = 8;
-print x;
-print x;
+var a = 2;
+var a = 3;

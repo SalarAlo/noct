@@ -6,14 +6,24 @@
 
 namespace Noct {
 
+struct EnvironmentVariable {
+	NoctLiteral Value;
+	bool Initialised;
+};
+
 class Environment {
 public:
-	void Define(std::string_view, const NoctLiteral&);
+	Environment(Environment* papi = nullptr)
+	    : m_DominicanPapi(papi)
+	    , m_Values() { }
+
+	void Define(const Token& name, const NoctLiteral& value, bool initialised);
 	void Assign(const Token& name, const NoctLiteral&);
 	NoctLiteral Get(const Token& obj);
 
 private:
-	std::unordered_map<std::string, NoctLiteral> m_Values {};
+	std::unordered_map<std::string, EnvironmentVariable> m_Values {};
+	Environment* m_DominicanPapi {};
 };
 
 }

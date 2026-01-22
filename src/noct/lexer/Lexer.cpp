@@ -161,12 +161,19 @@ void Lexer::HandleNumber() {
 		while (IsDigit(Peek()))
 			Advance();
 	}
-
 	double value {};
-	auto numberStr { CurrentSubstring() };
-	auto [_, ec] = std::from_chars(numberStr.data(), numberStr.data() + numberStr.size(), value);
-	if (ec != std::errc {}) {
+	auto numberStr = CurrentSubstring();
+
+	errno = 0;
+	char* end = nullptr;
+
+	std::string tmp(numberStr);
+
+	value = std::strtod(tmp.c_str(), &end);
+
+	if (errno != 0 || end != tmp.c_str() + tmp.size()) {
 		m_Context.RegisterSourceCodeError(m_Line, "Invalid number literal");
+		return;
 	}
 
 	AddToken(TokenType::Number, value);

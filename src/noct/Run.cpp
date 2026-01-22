@@ -38,12 +38,30 @@ namespace {
 			return;
 		}
 
-		Interpreter interpreter {};
+		Interpreter interpreter { context };
 		interpreter.Interpret(statements);
 	}
 
-	static void RunPrompt(Context& ctx) {
+	static void RunPrompt(Context& context) {
 		Logger::Info("Entering interactive mode");
+		while (!context.HadError) {
+			std::string inp;
+			std::cout << ">> ";
+			std::cin >> inp;
+
+			Lexer lexer { inp, context };
+			Parser parser { lexer.ScanTokens(), context };
+
+			auto statements = parser.Parse();
+
+			if (!statements.size()) {
+				Logger::Info("No statements");
+				return;
+			}
+
+			Interpreter interpreter { context };
+			interpreter.Interpret(statements);
+		}
 	}
 }
 

@@ -8,10 +8,13 @@ struct Grouping;
 struct Ternary;
 struct Variable;
 struct Assign;
+struct Logical;
 
 struct ExpressionStatement;
 struct PrintStatement;
 struct VariableDecleration;
+struct BlockStatement;
+struct IfStatement;
 
 struct ExpressionVisitor {
 	virtual ~ExpressionVisitor() = default;
@@ -23,6 +26,7 @@ struct ExpressionVisitor {
 	virtual void Visit(const Grouping&) = 0;
 	virtual void Visit(const Variable&) = 0;
 	virtual void Visit(const Assign&) = 0;
+	virtual void Visit(const Logical&) = 0;
 };
 
 struct StatementVisitor {
@@ -30,7 +34,9 @@ struct StatementVisitor {
 
 	virtual void Visit(const ExpressionStatement&) = 0;
 	virtual void Visit(const PrintStatement&) = 0;
+	virtual void Visit(const IfStatement&) = 0;
 	virtual void Visit(const VariableDecleration&) = 0;
+	virtual void Visit(const BlockStatement&) = 0;
 };
 
 }

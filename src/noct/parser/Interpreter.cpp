@@ -1,10 +1,17 @@
 #include "noct/parser/Interpreter.h"
 
+#include <iostream>
+#include <memory>
+#include <string>
+#include <variant>
+
 #include "noct/exceptions/RuntimeException.h"
 #include "noct/lexer/Token.h"
 #include "noct/lexer/TokenType.h"
 
 #include "noct/parser/expression/Assign.h"
+#include "noct/parser/expression/LiteralBoolifier.h"
+#include "noct/parser/statement/BlockStatement.h"
 #include "noct/parser/statement/ExpressionStatement.h"
 
 #include "noct/parser/expression/Expression.h"
@@ -12,18 +19,17 @@
 #include "noct/parser/expression/Literal.h"
 #include "noct/parser/expression/LiteralStringifier.h"
 #include "noct/parser/expression/Unary.h"
+#include "noct/parser/expression/Logical.h"
 #include "noct/parser/expression/Binary.h"
 #include "noct/parser/expression/Ternary.h"
 #include "noct/parser/expression/Variable.h"
-#include "noct/parser/statement/ExpressionStatement.h"
-#include "noct/parser/statement/PrintStatement.h"
-#include "noct/parser/statement/Statement.h"
-#include "noct/parser/statement/VariableDecleration.h"
 
-#include <iostream>
-#include <memory>
-#include <string>
-#include <variant>
+#include "noct/parser/statement/IfStatement.h"
+#include "noct/parser/statement/Statement.h"
+#include "noct/parser/statement/ExpressionStatement.h"
+#include "noct/parser/statement/BlockStatement.h"
+#include "noct/parser/statement/PrintStatement.h"
+#include "noct/parser/statement/VariableDecleration.h"
 
 namespace Noct {
 
@@ -33,7 +39,7 @@ void Interpreter::Interpret(const std::vector<std::unique_ptr<Statement>>& state
 			Execute(*stmt);
 		}
 	} catch (RuntimeError& error) {
-		throw error;
+		m_Context.RegisterTokenError(error.GetToken(), error.what());
 	}
 }
 
@@ -57,7 +63,29 @@ void Interpreter::Visit(const VariableDecleration& decl) {
 		obj = m_Value;
 	}
 
-	m_Env.Define(decl.Name.Lexeme, obj);
+	bool isInitialised { decl.Initialiser != nullptr };
+	m_Env->Define(decl.Name, obj, isInitialised);
+}
+
+void Interpreter::Visit(const BlockStatement& blockStmt) {
+	Environment* previous { m_Env.release() };
+	m_Env = std::make_unique<Environment>(previous);
+
+	for (const auto& stmt : blockStmt.Statements) {
+		Execute(*stmt);
+	}
+
+	m_Env.reset(previous);
+}
+
+void Interpreter::Visit(const IfStatement& ifStmt) {
+	Evaluate(*ifStmt.Condition);
+	bool condition { std::visit(LiteralBoolifier {}, m_Value) };
+	if (condition) {
+		Execute(*ifStmt.TrueStatement);
+	} else if (ifStmt.FalseStatement) {
+		Execute(*ifStmt.FalseStatement);
+	}
 }
 
 void Interpreter::Visit(const Literal& literal) {
@@ -75,7 +103,7 @@ void Interpreter::Visit(const Unary& unary) {
 		m_Value = -(*rightDoublePtr);
 		break;
 	case TokenType::Bang:
-		m_Value = !IsTruthy(right);
+		m_Value = !std::visit(LiteralBoolifier {}, right);
 		break;
 	default:
 		m_Value = std::monostate {};
@@ -174,7 +202,7 @@ void Interpreter::Visit(const Binary& binary) {
 
 void Interpreter::Visit(const Ternary& ternary) {
 	Evaluate(*ternary.Condition);
-	bool ternaryResult { IsTruthy(m_Value) };
+	bool ternaryResult { std::visit(LiteralBoolifier {}, m_Value) };
 
 	if (ternaryResult) {
 		Evaluate(*ternary.Left);
@@ -184,12 +212,33 @@ void Interpreter::Visit(const Ternary& ternary) {
 }
 
 void Interpreter::Visit(const Variable& var) {
-	m_Value = m_Env.Get(var.Name);
+	m_Value = m_Env->Get(var.Name);
 }
 
 void Interpreter::Visit(const Assign& exp) {
 	Evaluate(*exp.value);
-	m_Env.Assign(exp.name, m_Value);
+	m_Env->Assign(exp.name, m_Value);
+}
+
+void Interpreter::Visit(const Logical& exp) {
+	Evaluate(*exp.Left);
+	bool left = std::visit(LiteralBoolifier {}, m_Value);
+
+	if (exp.Operator.Type == TokenType::And) {
+		if (!left) {
+			m_Value = false;
+			return;
+		}
+		Evaluate(*exp.Right);
+		m_Value = std::visit(LiteralBoolifier {}, m_Value);
+	} else if (exp.Operator.Type == TokenType::Or) {
+		if (left) {
+			m_Value = true;
+			return;
+		}
+		Evaluate(*exp.Right);
+		m_Value = std::visit(LiteralBoolifier {}, m_Value);
+	}
 }
 
 void Interpreter::Evaluate(const Expression& exp) {
@@ -198,25 +247,6 @@ void Interpreter::Evaluate(const Expression& exp) {
 
 void Interpreter::Execute(const Statement& stmt) {
 	stmt.Accept(*this);
-}
-
-bool Interpreter::IsTruthy(const NoctLiteral& literal) {
-	if (std::get_if<std::monostate>(&literal)) {
-		return false;
-	}
-
-	if (auto boolPtr { std::get_if<bool>(&literal) }) {
-		return *boolPtr;
-	}
-
-	if (auto doublePtr { std::get_if<double>(&literal) }) {
-		return *doublePtr != 0;
-	}
-	if (auto strPtr { std::get_if<std::string>(&literal) }) {
-		return !strPtr->empty();
-	}
-
-	return true;
 }
 
 void Interpreter::EnsureNumbers(const Token& op, double* operand) {

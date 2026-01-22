@@ -12,6 +12,7 @@
 
 #include "noct/parser/expression/Expression.h"
 
+#include "noct/parser/statement/BlockStatement.h"
 #include "noct/parser/statement/Statement.h"
 #include "noct/parser/statement/PrintStatement.h"
 #include "noct/parser/statement/ExpressionStatement.h"
@@ -29,11 +30,15 @@ private:
 	std::unique_ptr<Statement> Decleration();
 
 	std::unique_ptr<Noct::PrintStatement> PrintStmt();
+	std::unique_ptr<Noct::BlockStatement> BlockStmt();
 	std::unique_ptr<Noct::ExpressionStatement> ExpressionStmt();
+	std::unique_ptr<Noct::IfStatement> IfStmt();
 	std::unique_ptr<Noct::VariableDecleration> VariableDecl();
 
 	std::unique_ptr<Expression> Expr();
 	std::unique_ptr<Expression> Assignment();
+	std::unique_ptr<Expression> Or();
+	std::unique_ptr<Expression> And();
 	std::unique_ptr<Expression> Comma();
 	std::unique_ptr<Expression> Ternary();
 	std::unique_ptr<Expression> Equality();
