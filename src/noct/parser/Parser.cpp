@@ -20,6 +20,7 @@
 #include "noct/parser/expression/Unary.h"
 #include "noct/parser/expression/Assign.h"
 #include "noct/parser/expression/Variable.h"
+#include "noct/parser/statement/WhileStatement.h"
 
 using enum Noct::TokenType;
 
@@ -91,6 +92,10 @@ std::unique_ptr<Statement> Parser::Stmt() {
 		return IfStmt();
 	}
 
+	if (MatchCurrent(TokenType::While)) {
+		return WhileStmt();
+	}
+
 	return ExpressionStmt();
 }
 
@@ -125,6 +130,16 @@ std::unique_ptr<IfStatement> Parser::IfStmt() {
 	}
 
 	return std::make_unique<IfStatement>(std::move(condition), std::move(trueStmt), std::move(falseStmt));
+}
+
+std::unique_ptr<WhileStatement> Parser::WhileStmt() {
+	Consume(TokenType::LeftParen, "Left Parenthesis '(' expected after while statement)");
+	auto condition { Expr() };
+	Consume(TokenType::RightParen, "Right Parenthesis ')' expected after while condition)");
+
+	auto execStmt { Decleration() };
+
+	return std::make_unique<WhileStatement>(std::move(condition), std::move(execStmt));
 }
 
 std::unique_ptr<ExpressionStatement> Parser::ExpressionStmt() {

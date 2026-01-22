@@ -15,6 +15,7 @@ struct PrintStatement;
 struct VariableDecleration;
 struct BlockStatement;
 struct IfStatement;
+struct WhileStatement;
 
 struct ExpressionVisitor {
 	virtual ~ExpressionVisitor() = default;
@@ -37,6 +38,7 @@ struct StatementVisitor {
 	virtual void Visit(const IfStatement&) = 0;
 	virtual void Visit(const VariableDecleration&) = 0;
 	virtual void Visit(const BlockStatement&) = 0;
+	virtual void Visit(const WhileStatement&) = 0;
 };
 
 }

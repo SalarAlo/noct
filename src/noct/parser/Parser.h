@@ -17,6 +17,7 @@
 #include "noct/parser/statement/PrintStatement.h"
 #include "noct/parser/statement/ExpressionStatement.h"
 #include "noct/parser/statement/VariableDecleration.h"
+#include "noct/parser/statement/WhileStatement.h"
 
 namespace Noct {
 
@@ -33,6 +34,7 @@ private:
 	std::unique_ptr<Noct::BlockStatement> BlockStmt();
 	std::unique_ptr<Noct::ExpressionStatement> ExpressionStmt();
 	std::unique_ptr<Noct::IfStatement> IfStmt();
+	std::unique_ptr<Noct::WhileStatement> WhileStmt();
 	std::unique_ptr<Noct::VariableDecleration> VariableDecl();
 
 	std::unique_ptr<Expression> Expr();

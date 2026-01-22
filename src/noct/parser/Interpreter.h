@@ -33,6 +33,7 @@ public:
 	void Visit(const VariableDecleration&) override;
 	void Visit(const BlockStatement&) override;
 	void Visit(const IfStatement&) override;
+	void Visit(const WhileStatement&) override;
 
 	void Interpret(const std::vector<std::unique_ptr<Statement>>& statements);
 

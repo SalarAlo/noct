@@ -30,6 +30,7 @@
 #include "noct/parser/statement/BlockStatement.h"
 #include "noct/parser/statement/PrintStatement.h"
 #include "noct/parser/statement/VariableDecleration.h"
+#include "noct/parser/statement/WhileStatement.h"
 
 namespace Noct {
 
@@ -76,6 +77,18 @@ void Interpreter::Visit(const BlockStatement& blockStmt) {
 	}
 
 	m_Env.reset(previous);
+}
+
+void Interpreter::Visit(const WhileStatement& whileStmt) {
+	Evaluate(*whileStmt.RunCondition);
+	bool condition { std::visit(LiteralBoolifier {}, m_Value) };
+
+	while (condition) {
+		Execute(*whileStmt.ExecuteStatement);
+
+		Evaluate(*whileStmt.RunCondition);
+		condition = std::visit(LiteralBoolifier {}, m_Value);
+	}
 }
 
 void Interpreter::Visit(const IfStatement& ifStmt) {
@@ -225,19 +238,15 @@ void Interpreter::Visit(const Logical& exp) {
 	bool left = std::visit(LiteralBoolifier {}, m_Value);
 
 	if (exp.Operator.Type == TokenType::And) {
-		if (!left) {
-			m_Value = false;
+		if (!left)
 			return;
-		}
+
 		Evaluate(*exp.Right);
-		m_Value = std::visit(LiteralBoolifier {}, m_Value);
 	} else if (exp.Operator.Type == TokenType::Or) {
-		if (left) {
-			m_Value = true;
+		if (left)
 			return;
-		}
+
 		Evaluate(*exp.Right);
-		m_Value = std::visit(LiteralBoolifier {}, m_Value);
 	}
 }
 
