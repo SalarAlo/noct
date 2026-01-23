@@ -24,6 +24,7 @@ inline const std::unordered_map<std::string_view, TokenType> Keywords = {
 	{ "true", TokenType::True },
 	{ "var", TokenType::Var },
 	{ "while", TokenType::While },
+	{ "break", TokenType::Break },
 };
 
 }

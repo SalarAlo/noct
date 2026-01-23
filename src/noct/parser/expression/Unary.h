@@ -8,17 +8,9 @@
 #include "noct/lexer/TokenType.h"
 
 namespace Noct {
-struct Unary : Expression {
-	Unary(const Token& op, std::unique_ptr<Expression> r)
-	    : Operator(op)
-	    , Right(std::move(r)) {
-
-	    };
-
+struct Unary {
 	Token Operator { TokenType::Nil, "", std::monostate {}, 0 };
 	std::unique_ptr<Expression> Right { nullptr };
-
-	void Accept(ExpressionVisitor& v) const override { v.Visit(*this); }
 };
 
 }

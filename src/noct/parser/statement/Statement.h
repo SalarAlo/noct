@@ -1,12 +1,27 @@
 #pragma once
 
-#include "noct/parser/Visitor.h"
+#include "noct/parser/statement/BlockStatement.h"
+#include "noct/parser/statement/ExpressionStatement.h"
+#include "noct/parser/statement/IfStatement.h"
+#include "noct/parser/statement/PrintStatement.h"
+#include "noct/parser/statement/VariableDecleration.h"
+#include "noct/parser/statement/WhileStatement.h"
+#include "noct/parser/statement/BreakStatement.h"
 
 namespace Noct {
 
 struct Statement {
-	virtual ~Statement() = default;
-	virtual void Accept(StatementVisitor& v) const = 0;
+public:
+	using Variant = std::variant<
+	    BlockStatement, ExpressionStatement, IfStatement,
+	    PrintStatement, VariableDecleration, WhileStatement, BreakStatement>;
+
+public:
+	Variant Instruction;
+
+	template <class T>
+	explicit Statement(T&& v)
+	    : Instruction(std::forward<T>(v)) { }
 };
 
 }

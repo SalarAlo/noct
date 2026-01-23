@@ -8,7 +8,7 @@ enum class TokenType {
     LeftParen, RightParen,
     LeftBrace, RightBrace,
     Comma, Dot, Minus, Plus, Semicolon, Slash, Star,
-    QuestionMark, Colon,
+    QuestionMark, Colon, Percentage,
 
     Bang, BangEqual,
     Equal, EqualEqual,
@@ -18,7 +18,7 @@ enum class TokenType {
     Identifier, String, Number,
 
     And, Class, Else, False, Fun, For, If, Nil, Or,
-    Print, Return, Super, This, True, Var, While,
+    Print, Return, Super, This, True, Var, While, Break,
 
     Eof
 };

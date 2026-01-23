@@ -58,6 +58,9 @@ void Lexer::ScanToken() {
 	case ':':
 		AddToken(TokenType::Colon);
 		break;
+	case '%':
+		AddToken(TokenType::Percentage);
+		break;
 #pragma endregion
 #pragma region Multi Character Tokens
 	case '!':

@@ -1,12 +1,9 @@
 #pragma once
-
-#include "noct/parser/Visitor.h"
+#include <memory>
 
 namespace Noct {
 
-struct Expression {
-	virtual ~Expression() = default;
-	virtual void Accept(ExpressionVisitor& v) const = 0;
-};
+struct Expression;
+using ExpressionPtr = std::unique_ptr<Expression>;
 
 }

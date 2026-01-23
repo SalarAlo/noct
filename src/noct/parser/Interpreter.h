@@ -5,35 +5,36 @@
 
 #include "noct/Context.h"
 #include "noct/Environment.h"
-#include "noct/parser/statement/Statement.h"
 
 #include "noct/parser/expression/Expression.h"
+#include "noct/parser/expression/ExpressionDef.h"
 
-#include "noct/parser/Visitor.h"
 #include "noct/lexer/Token.h"
+#include "noct/parser/statement/Statement.h"
 
 namespace Noct {
 
-class Interpreter final : public ExpressionVisitor, public StatementVisitor {
+class Interpreter final {
 public:
 	Interpreter(Context& context)
 	    : m_Context(context) { };
 
-	void Visit(const Unary&) override;
-	void Visit(const Binary&) override;
-	void Visit(const Literal&) override;
-	void Visit(const Ternary&) override;
-	void Visit(const Grouping&) override;
-	void Visit(const Variable&) override;
-	void Visit(const Assign&) override;
-	void Visit(const Logical&) override;
+	void operator()(const Unary&);
+	void operator()(const Binary&);
+	void operator()(const Literal&);
+	void operator()(const Ternary&);
+	void operator()(const Grouping&);
+	void operator()(const Variable&);
+	void operator()(const Assign&);
+	void operator()(const Logical&);
 
-	void Visit(const ExpressionStatement&) override;
-	void Visit(const PrintStatement&) override;
-	void Visit(const VariableDecleration&) override;
-	void Visit(const BlockStatement&) override;
-	void Visit(const IfStatement&) override;
-	void Visit(const WhileStatement&) override;
+	void operator()(const ExpressionStatement&);
+	void operator()(const PrintStatement&);
+	void operator()(const VariableDecleration&);
+	void operator()(const BlockStatement&);
+	void operator()(const IfStatement&);
+	void operator()(const WhileStatement&);
+	void operator()(const BreakStatement&);
 
 	void Interpret(const std::vector<std::unique_ptr<Statement>>& statements);
 
