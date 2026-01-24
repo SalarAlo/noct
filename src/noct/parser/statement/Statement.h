@@ -2,6 +2,7 @@
 
 #include "noct/parser/statement/BlockStatement.h"
 #include "noct/parser/statement/ExpressionStatement.h"
+#include "noct/parser/statement/FunctionDecleration.h"
 #include "noct/parser/statement/IfStatement.h"
 #include "noct/parser/statement/PrintStatement.h"
 #include "noct/parser/statement/VariableDecleration.h"
@@ -14,7 +15,8 @@ struct Statement {
 public:
 	using Variant = std::variant<
 	    BlockStatement, ExpressionStatement, IfStatement,
-	    PrintStatement, VariableDecleration, WhileStatement, BreakStatement>;
+	    VariableDecleration, FunctionDecleration,
+	    PrintStatement, WhileStatement, BreakStatement>;
 
 public:
 	Variant Instruction;

@@ -1,15 +1,4 @@
-var i = 1;
+fn a() { print 1; }
 
-while (i <= 100000) {
-	if (i % 15 == 0) {
-		print "FizzBuzz";
-	} else if (i % 3 == 0) {
-		print "Fizz";
-	} else if (i % 5 == 0) {
-		print "Buzz";
-	} else {
-		print i;
-	}
-
-	i = i + 1;
-}
+make f = a;
+f();

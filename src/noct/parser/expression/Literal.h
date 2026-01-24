@@ -1,10 +1,10 @@
 #pragma once
 
-#include "noct/lexer/Token.h"
+#include "noct/lexer/NoctObject.h"
 
 namespace Noct {
 struct Literal {
-	NoctLiteral Value;
+	NoctObject Value;
 };
 
 }

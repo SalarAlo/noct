@@ -13,7 +13,7 @@ inline const std::unordered_map<std::string_view, TokenType> Keywords = {
 	{ "else", TokenType::Else },
 	{ "false", TokenType::False },
 	{ "for", TokenType::For },
-	{ "fun", TokenType::Fun },
+	{ "fn", TokenType::Fn },
 	{ "if", TokenType::If },
 	{ "nil", TokenType::Nil },
 	{ "or", TokenType::Or },
@@ -22,7 +22,7 @@ inline const std::unordered_map<std::string_view, TokenType> Keywords = {
 	{ "super", TokenType::Super },
 	{ "this", TokenType::This },
 	{ "true", TokenType::True },
-	{ "var", TokenType::Var },
+	{ "make", TokenType::Make },
 	{ "while", TokenType::While },
 	{ "break", TokenType::Break },
 };

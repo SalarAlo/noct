@@ -1,5 +1,7 @@
 #pragma once
 
+#include "noct/parser/expression/FunctionValue.h"
+#include <memory>
 #include <string>
 #include <variant>
 
@@ -19,6 +21,10 @@ struct LiteralBoolifier {
 
 	bool operator()(const std::monostate&) const {
 		return false;
+	}
+
+	bool operator()(const std::shared_ptr<FunctionValue>&) const {
+		return true;
 	}
 };
 }

@@ -5,7 +5,7 @@
 
 namespace Noct {
 struct Variable {
-	Token Name { TokenType::Nil, "", std::monostate {}, 0 };
+	Token Name { TokenType::Nil, "", 0 };
 };
 
 }

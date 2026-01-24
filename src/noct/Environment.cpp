@@ -1,19 +1,20 @@
 #include "noct/Environment.h"
-#include "noct/exceptions/RuntimeException.h"
-#include "noct/lexer/Token.h"
 
 #include <fmt/format.h>
 
+#include "noct/exceptions/RuntimeException.h"
+#include "noct/lexer/Token.h"
+
 namespace Noct {
 
-void Environment::Define(const Token& name, const NoctLiteral& obj, bool initialised) {
+void Environment::Define(const Token& name, NoctObject obj, bool initialised) {
 	if (m_Values.contains(name.Lexeme)) {
 		throw RuntimeError(name, fmt::format("Redefining variable '{}'.", name.Lexeme));
 	}
 	m_Values.emplace(name.Lexeme, EnvironmentVariable { obj, initialised });
 }
 
-void Environment::Assign(const Token& name, const NoctLiteral& val) {
+void Environment::Assign(const Token& name, const NoctObject& val) {
 	auto it = m_Values.find(name.Lexeme);
 
 	if (it != m_Values.end()) {
@@ -30,7 +31,7 @@ void Environment::Assign(const Token& name, const NoctLiteral& val) {
 	throw RuntimeError(name, fmt::format("Undefined variable '{}'.", name.Lexeme));
 }
 
-NoctLiteral Environment::Get(const Token& name) {
+NoctObject Environment::Get(const Token& name) {
 	auto it = m_Values.find(name.Lexeme);
 
 	if (it != m_Values.end()) {

@@ -10,6 +10,7 @@
 #include "noct/parser/expression/ExpressionDef.h"
 
 #include "noct/lexer/Token.h"
+#include "noct/parser/statement/FunctionDecleration.h"
 #include "noct/parser/statement/Statement.h"
 
 namespace Noct {
@@ -27,30 +28,33 @@ public:
 	void operator()(const Variable&);
 	void operator()(const Assign&);
 	void operator()(const Logical&);
+	void operator()(const Call&);
 
 	void operator()(const ExpressionStatement&);
 	void operator()(const PrintStatement&);
 	void operator()(const VariableDecleration&);
+	void operator()(FunctionDecleration&);
 	void operator()(const BlockStatement&);
 	void operator()(const IfStatement&);
 	void operator()(const WhileStatement&);
 	void operator()(const BreakStatement&);
 
 	void Interpret(const std::vector<std::unique_ptr<Statement>>& statements);
+	void HoistFunctions(const std::vector<std::unique_ptr<Statement>>& statements);
 
-	bool IsEqual(const NoctLiteral& left, const NoctLiteral& right);
+	bool IsEqual(const NoctObject& left, const NoctObject& right);
 
 	void EnsureNumbers(const Token& op, double* operand);
 	void EnsureNumbers(const Token& op, double* operand, double* operand2);
 
-	NoctLiteral GetLiteral() const { return m_Value; }
+	NoctObject GetLiteral() const { return m_Value; }
 
 	void Evaluate(const Expression& exp);
-	void Execute(const Statement& exp);
+	void Execute(Statement& exp);
 
 private:
 	Context& m_Context;
-	NoctLiteral m_Value {};
+	NoctObject m_Value {};
 	std::unique_ptr<Environment> m_Env { std::make_unique<Environment>() };
 };
 

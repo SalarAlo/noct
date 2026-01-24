@@ -11,6 +11,7 @@
 #include "noct/parser/expression/Logical.h"
 #include "noct/parser/expression/Grouping.h"
 #include "noct/parser/expression/Ternary.h"
+#include "noct/parser/expression/Call.h"
 
 namespace Noct {
 
@@ -23,7 +24,8 @@ struct Expression {
 	    Assign,
 	    Logical,
 	    Grouping,
-	    Ternary>;
+	    Ternary,
+	    Call>;
 
 	Variant Value;
 

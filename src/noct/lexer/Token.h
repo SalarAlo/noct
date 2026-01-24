@@ -1,28 +1,32 @@
 #pragma once
 
 #include <string>
-#include <variant>
 #include <cstddef>
 
 #include "noct/lexer/TokenType.h"
 
 namespace Noct {
 
-using NoctLiteral = std::variant<std::monostate, double, std::string, bool>;
-
 struct Token {
-	Token(TokenType type, std::string_view lexeme, NoctLiteral literal, std::size_t line)
+	Token(TokenType type, std::string_view lexeme, std::size_t line)
 	    : Type(type)
 	    , Lexeme(lexeme)
-	    , Literal(literal)
 	    , Line(line) { };
 
 	TokenType Type;
 	std::string Lexeme;
-	NoctLiteral Literal;
 	std::size_t Line;
 
 	std::string ToString() const;
 };
+
+inline bool operator==(const Token& a, const Token& b) {
+	return a.Type == b.Type
+	    && a.Lexeme == b.Lexeme;
+}
+
+inline bool operator!=(const Token& a, const Token& b) {
+	return !(a == b);
+}
 
 }

@@ -4,6 +4,10 @@ namespace Noct {
 
 std::string ToString(TokenType type) {
 	switch (type) {
+	case TokenType::Break:
+		return "Break";
+	case TokenType::Percentage:
+		return "Percentage";
 	case TokenType::LeftParen:
 		return "LeftParen";
 	case TokenType::RightParen:
@@ -63,7 +67,7 @@ std::string ToString(TokenType type) {
 		return "Else";
 	case TokenType::False:
 		return "False";
-	case TokenType::Fun:
+	case TokenType::Fn:
 		return "Fun";
 	case TokenType::For:
 		return "For";
@@ -83,7 +87,7 @@ std::string ToString(TokenType type) {
 		return "This";
 	case TokenType::True:
 		return "True";
-	case TokenType::Var:
+	case TokenType::Make:
 		return "Var";
 	case TokenType::While:
 		return "While";

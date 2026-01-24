@@ -9,7 +9,7 @@
 
 namespace Noct {
 struct Unary {
-	Token Operator { TokenType::Nil, "", std::monostate {}, 0 };
+	Token Operator { TokenType::Nil, "", 0 };
 	std::unique_ptr<Expression> Right { nullptr };
 };
 

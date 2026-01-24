@@ -1,5 +1,7 @@
 #pragma once
 
+#include "noct/parser/expression/FunctionValue.h"
+#include <memory>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -28,6 +30,10 @@ struct LiteralNumifier {
 
 	std::optional<double> operator()(const std::monostate&) const {
 		return 0;
+	}
+
+	double operator()(const std::shared_ptr<FunctionValue>& f) const {
+		return f->ArgumentNames.size();
 	}
 };
 }

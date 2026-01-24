@@ -2,12 +2,13 @@
 
 #include <unordered_map>
 
+#include "noct/lexer/NoctObject.h"
 #include "noct/lexer/Token.h"
 
 namespace Noct {
 
 struct EnvironmentVariable {
-	NoctLiteral Value;
+	NoctObject Value;
 	bool Initialised;
 };
 
@@ -17,9 +18,9 @@ public:
 	    : m_DominicanPapi(papi)
 	    , m_Values() { }
 
-	void Define(const Token& name, const NoctLiteral& value, bool initialised);
-	void Assign(const Token& name, const NoctLiteral&);
-	NoctLiteral Get(const Token& obj);
+	void Define(const Token& name, NoctObject value, bool initialised);
+	void Assign(const Token& name, const NoctObject&);
+	NoctObject Get(const Token& obj);
 
 private:
 	std::unordered_map<std::string, EnvironmentVariable> m_Values {};

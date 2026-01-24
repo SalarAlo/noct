@@ -10,13 +10,16 @@
 #include "noct/lexer/Token.h"
 #include "noct/lexer/TokenType.h"
 
+#include "noct/parser/expression/FunctionValue.h"
 #include "noct/parser/statement/BlockStatement.h"
 #include "noct/parser/statement/BreakStatement.h"
 #include "noct/parser/statement/ExpressionStatement.h"
 
 #include "noct/parser/expression/LiteralBoolifier.h"
+#include "noct/parser/expression/Expression.h"
 #include "noct/parser/expression/LiteralStringifier.h"
 
+#include "noct/parser/statement/FunctionDecleration.h"
 #include "noct/parser/statement/Statement.h"
 #include "noct/parser/statement/IfStatement.h"
 #include "noct/parser/statement/ExpressionStatement.h"
@@ -28,12 +31,22 @@
 namespace Noct {
 
 void Interpreter::Interpret(const std::vector<std::unique_ptr<Statement>>& statements) {
-	try {
-		for (const auto& stmt : statements) {
-			Execute(*stmt);
+	HoistFunctions(statements);
+
+	for (const auto& stmt : statements) {
+		Execute(*stmt);
+	}
+}
+
+void Interpreter::HoistFunctions(const std::vector<StatementPtr>& stmts) {
+	for (const auto& stmt : stmts) {
+		if (auto fn = std::get_if<FunctionDecleration>(&stmt->Instruction)) {
+			auto value = std::make_shared<FunctionValue>(
+			    std::move(fn->Body),
+			    fn->ArgumentNames,
+			    fn->Name);
+			m_Env->Define(fn->Name, value, true);
 		}
-	} catch (RuntimeError& error) {
-		m_Context.RegisterTokenError(error.GetToken(), error.what());
 	}
 }
 
@@ -47,7 +60,8 @@ void Interpreter::operator()(const PrintStatement& expr) {
 }
 
 void Interpreter::operator()(const VariableDecleration& decl) {
-	NoctLiteral obj {};
+	NoctObject obj {};
+
 	if (decl.Initialiser) {
 		Evaluate(*decl.Initialiser);
 		obj = m_Value;
@@ -58,14 +72,18 @@ void Interpreter::operator()(const VariableDecleration& decl) {
 }
 
 void Interpreter::operator()(const BlockStatement& blockStmt) {
-	Environment* previous { m_Env.release() };
-	m_Env = std::make_unique<Environment>(previous);
+	Environment* previous = m_Env.get();
+	auto local = std::make_unique<Environment>(previous);
 
-	for (const auto& stmt : blockStmt.Statements) {
+	auto saved = std::move(m_Env);
+	m_Env = std::move(local);
+
+	HoistFunctions(blockStmt.Statements);
+
+	for (const auto& stmt : blockStmt.Statements)
 		Execute(*stmt);
-	}
 
-	m_Env.reset(previous);
+	m_Env = std::move(saved);
 }
 
 void Interpreter::operator()(const BreakStatement& _) {
@@ -95,6 +113,9 @@ void Interpreter::operator()(const IfStatement& ifStmt) {
 	}
 }
 
+void Interpreter::operator()(FunctionDecleration& fnDecl) {
+	// intentionally empty because we already hoisted
+}
 void Interpreter::operator()(const Literal& literal) {
 	m_Value = literal.Value;
 }
@@ -252,11 +273,40 @@ void Interpreter::operator()(const Logical& exp) {
 	}
 }
 
+void Interpreter::operator()(const Call& exp) {
+	Evaluate(*exp.Callee);
+
+	auto fn { std::get<std::shared_ptr<FunctionValue>>(m_Value) };
+
+	if (exp.Arguments.size() != fn->ArgumentNames.size()) {
+		throw new RuntimeError(*fn->Name, std::format("Function expects {} arguments", fn->ArgumentNames.size()));
+	}
+
+	auto evaluatedArgs = std::vector<NoctObject>();
+	evaluatedArgs.reserve(exp.Arguments.size());
+
+	Environment* previous = m_Env.get();
+	auto local = std::make_unique<Environment>(previous);
+
+	for (auto i { 0uz }; i < fn->ArgumentNames.size(); i++) {
+		Evaluate(*exp.Arguments[i]);
+		local->Define(fn->ArgumentNames[i], m_Value, true);
+	}
+
+	auto saved = std::move(m_Env);
+	m_Env = std::move(local);
+
+	for (const auto& stmt : fn->Body)
+		Execute(*stmt);
+
+	m_Env = std::move(saved);
+}
+
 void Interpreter::Evaluate(const Expression& exp) {
 	std::visit(*this, exp.Value);
 }
 
-void Interpreter::Execute(const Statement& stmt) {
+void Interpreter::Execute(Statement& stmt) {
 	std::visit(*this, stmt.Instruction);
 }
 
@@ -274,7 +324,7 @@ void Interpreter::EnsureNumbers(const Token& op, double* operand1, double* opera
 	throw RuntimeError(op, "Operands must be a number.");
 }
 
-bool Interpreter::IsEqual(const NoctLiteral& left, const NoctLiteral& right) {
+bool Interpreter::IsEqual(const NoctObject& left, const NoctObject& right) {
 	if (left.index() != right.index())
 		return false;
 

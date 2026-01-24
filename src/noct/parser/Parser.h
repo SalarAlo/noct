@@ -34,23 +34,27 @@ private:
 	std::unique_ptr<Statement> ForStmt();
 	std::unique_ptr<Statement> BreakStmt();
 	std::unique_ptr<Statement> VariableDecl();
+	std::unique_ptr<Statement> FunctionDecl();
 
 	std::unique_ptr<Expression> Expr();
 	std::unique_ptr<Expression> Assignment();
 	std::unique_ptr<Expression> Or();
 	std::unique_ptr<Expression> And();
-	std::unique_ptr<Expression> Comma();
 	std::unique_ptr<Expression> Ternary();
 	std::unique_ptr<Expression> Equality();
 	std::unique_ptr<Expression> Comparison();
 	std::unique_ptr<Expression> Term();
 	std::unique_ptr<Expression> Factor();
 	std::unique_ptr<Expression> Unary();
+	std::unique_ptr<Expression> Call();
 	std::unique_ptr<Expression> Primary();
 
 	std::unique_ptr<Expression> RecoverRhs(TokenType type);
 
 	void Synchronize();
+
+	std::vector<ExpressionPtr> GetArguments();
+	std::vector<Token> GetParameters();
 
 	bool MatchAny(const std::initializer_list<TokenType>& types);
 	bool Check(TokenType type);

@@ -1,6 +1,5 @@
 #include "noct/lexer/Lexer.h"
 
-#include <charconv>
 #include <fmt/format.h>
 
 #include "noct/lexer/TokenType.h"
@@ -14,7 +13,7 @@ const std::vector<Token>& Lexer::ScanTokens() {
 		ScanToken();
 	}
 
-	m_Tokens.emplace_back(TokenType::Eof, "", std::monostate {}, m_Line);
+	m_Tokens.emplace_back(TokenType::Eof, "", m_Line);
 	return m_Tokens;
 }
 
@@ -153,7 +152,7 @@ void Lexer::HandleString() {
 	Advance();
 
 	std::string value { m_Source.substr(m_Start + 1, (m_Current - m_Start) - 2) };
-	AddToken(TokenType::String, value);
+	AddToken(TokenType::String);
 }
 
 void Lexer::HandleNumber() {
@@ -165,21 +164,8 @@ void Lexer::HandleNumber() {
 			Advance();
 	}
 	double value {};
-	auto numberStr = CurrentSubstring();
 
-	errno = 0;
-	char* end = nullptr;
-
-	std::string tmp(numberStr);
-
-	value = std::strtod(tmp.c_str(), &end);
-
-	if (errno != 0 || end != tmp.c_str() + tmp.size()) {
-		m_Context.RegisterSourceCodeError(m_Line, "Invalid number literal");
-		return;
-	}
-
-	AddToken(TokenType::Number, value);
+	AddToken(TokenType::Number);
 }
 
 void Lexer::HandleIdentifier() {
@@ -243,9 +229,9 @@ bool Lexer::Match(char match) {
 	return true;
 }
 
-void Lexer::AddToken(TokenType type, NoctLiteral noctLiteral) {
+void Lexer::AddToken(TokenType type) {
 	auto lexeme { CurrentSubstring() };
-	m_Tokens.emplace_back(type, lexeme, noctLiteral, m_Line);
+	m_Tokens.emplace_back(type, lexeme, m_Line);
 }
 
 std::string Lexer::CurrentSubstring() const {
