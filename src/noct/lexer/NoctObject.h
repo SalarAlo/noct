@@ -1,9 +1,9 @@
 #pragma once
 
-#include "noct/parser/expression/FunctionValue.h"
-
 #include <string>
 #include <variant>
+
+#include "noct/parser/expression/FunctionValue.h"
 
 namespace Noct {
 
@@ -12,6 +12,6 @@ using NoctObject = std::variant<
     double,
     std::string,
     bool,
-    std::shared_ptr<FunctionValue>>;
+    FunctionRef>;
 
 }

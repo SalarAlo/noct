@@ -1,13 +1,11 @@
 #pragma once
 
-#include <memory>
-
-#include "noct/parser/expression/ExpressionDef.h"
+#include "noct/parser/expression/ExpressionFwd.h"
 
 namespace Noct {
 
 struct ExpressionStatement {
-	std::unique_ptr<Expression> Expr;
+	ExpressionPtr Expr;
 };
 
 }

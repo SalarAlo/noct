@@ -1,4 +1,9 @@
-fn a() { print 1; }
+while(true) {
 
-make f = a;
-f();
+if maybe {
+	print "yipi";
+} else {
+	print "nah";
+}
+
+}

@@ -1,17 +1,18 @@
 #pragma once
 
 #include <memory>
-#include <vector>
 
 #include "noct/Context.h"
 #include "noct/Environment.h"
 
-#include "noct/parser/expression/Expression.h"
-#include "noct/parser/expression/ExpressionDef.h"
-
 #include "noct/lexer/Token.h"
+
+#include "noct/parser/expression/Expression.h"
+#include "noct/parser/expression/ExpressionFwd.h"
+
 #include "noct/parser/statement/FunctionDecleration.h"
 #include "noct/parser/statement/Statement.h"
+#include "noct/parser/statement/StatementFwd.h"
 
 namespace Noct {
 
@@ -29,6 +30,7 @@ public:
 	void operator()(const Assign&);
 	void operator()(const Logical&);
 	void operator()(const Call&);
+	void operator()(const Maybe&);
 
 	void operator()(const ExpressionStatement&);
 	void operator()(const PrintStatement&);
@@ -39,8 +41,8 @@ public:
 	void operator()(const WhileStatement&);
 	void operator()(const BreakStatement&);
 
-	void Interpret(const std::vector<std::unique_ptr<Statement>>& statements);
-	void HoistFunctions(const std::vector<std::unique_ptr<Statement>>& statements);
+	void Interpret(const StatementPtrVector& statements);
+	void HoistFunctions(const StatementPtrVector& statements);
 
 	bool IsEqual(const NoctObject& left, const NoctObject& right);
 

@@ -1,26 +1,27 @@
-#include "noct/parser/Parser.h"
-
 #include <fmt/format.h>
+
+#include <initializer_list>
 #include <memory>
 #include <set>
 #include <string>
-#include <initializer_list>
+
+#include "noct/parser/Parser.h"
 
 #include "noct/Helpers.h"
+
 #include "noct/exceptions/RuntimeException.h"
+
 #include "noct/lexer/Token.h"
 #include "noct/lexer/TokenType.h"
 
-#include "noct/parser/expression/LiteralNummifier.h"
 #include "noct/parser/expression/Expression.h"
-#include "noct/parser/expression/LiteralStringifier.h"
+#include "noct/parser/expression/LiteralNummifier.h"
 #include "noct/parser/expression/MakeExpression.h"
+
 #include "noct/parser/statement/BlockStatement.h"
 #include "noct/parser/statement/FunctionDecleration.h"
 #include "noct/parser/statement/MakeStatement.h"
 #include "noct/parser/statement/StatementFwd.h"
-
-using enum Noct::TokenType;
 
 namespace Noct {
 
@@ -42,6 +43,7 @@ Parser::Parser(const std::vector<Token>& tokens, Context& ctx)
     , m_Context(ctx) { };
 
 void Parser::Synchronize() {
+	using enum TokenType;
 	Advance();
 
 	while (!IsAtEnd()) {
@@ -64,8 +66,8 @@ void Parser::Synchronize() {
 	}
 }
 
-std::vector<StatementPtr> Parser::Parse() {
-	std::vector<StatementPtr> statements {};
+StatementPtrVector Parser::Parse() {
+	StatementPtrVector statements {};
 
 	try {
 		while (!IsAtEnd()) {
@@ -81,7 +83,7 @@ std::vector<StatementPtr> Parser::Parse() {
 	}
 }
 
-std::unique_ptr<Statement> Parser::Stmt() {
+StatementPtr Parser::Stmt() {
 	if (MatchCurrent(TokenType::Print))
 		return PrintStmt();
 
@@ -107,7 +109,7 @@ std::unique_ptr<Statement> Parser::Stmt() {
 	return ExpressionStmt();
 }
 
-std::unique_ptr<Statement> Parser::Decleration() {
+StatementPtr Parser::Decleration() {
 	try {
 		if (MatchCurrent(TokenType::Make))
 			return VariableDecl();
@@ -122,17 +124,17 @@ std::unique_ptr<Statement> Parser::Decleration() {
 	}
 }
 
-std::unique_ptr<Statement> Parser::PrintStmt() {
+StatementPtr Parser::PrintStmt() {
 	auto value { Expr() };
 	Consume(TokenType::Semicolon, "Semicolon (';') after print statemenet exprected");
 	return make_statement<PrintStatement>(std::move(value));
 }
 
-std::unique_ptr<Statement> Parser::IfStmt() {
+StatementPtr Parser::IfStmt() {
 	auto condition { Expr() };
 
 	auto trueStmt { Stmt() };
-	std::unique_ptr<Statement> falseStmt { nullptr };
+	StatementPtr falseStmt { nullptr };
 
 	if (MatchCurrent(TokenType::Else)) {
 		falseStmt = Stmt();
@@ -144,7 +146,7 @@ std::unique_ptr<Statement> Parser::IfStmt() {
 	    std::move(falseStmt));
 }
 
-std::unique_ptr<Statement> Parser::WhileStmt() {
+StatementPtr Parser::WhileStmt() {
 	auto condition { Expr() };
 
 	auto body = Stmt();
@@ -154,14 +156,16 @@ std::unique_ptr<Statement> Parser::WhileStmt() {
 	    std::move(body));
 }
 
-std::unique_ptr<Statement> Parser::BreakStmt() {
+StatementPtr Parser::BreakStmt() {
 	Consume(TokenType::Semicolon, "Exptected a ';' after a break statement");
 	return make_statement<BreakStatement>();
 }
 
-std::unique_ptr<Statement> Parser::ForStmt() {
+StatementPtr Parser::ForStmt() {
+	using enum TokenType;
+
 	Consume(TokenType::LeftParen, "Left Parenthesis '(' expected after while statement)");
-	std::unique_ptr<Statement> initialiser { nullptr };
+	StatementPtr initialiser { nullptr };
 
 	if (MatchCurrent(TokenType::Semicolon)) {
 	} else if (MatchCurrent(TokenType::Make)) {
@@ -170,13 +174,13 @@ std::unique_ptr<Statement> Parser::ForStmt() {
 		initialiser = ExpressionStmt();
 	}
 
-	std::unique_ptr<Expression> condition { nullptr };
+	ExpressionPtr condition { nullptr };
 	if (!Check(TokenType::Semicolon)) {
 		condition = Expr();
 	}
 	Consume(TokenType::Semicolon, "Expected ';' after loop condition");
 
-	std::unique_ptr<Expression> increment { nullptr };
+	ExpressionPtr increment { nullptr };
 	if (!Check(RightParen)) {
 		increment = Expr();
 	}
@@ -185,7 +189,7 @@ std::unique_ptr<Statement> Parser::ForStmt() {
 	auto body = Stmt();
 
 	if (increment) {
-		std::vector<std::unique_ptr<Statement>> guts {};
+		StatementPtrVector guts {};
 		guts.push_back(std::move(body));
 		guts.push_back(make_statement<ExpressionStatement>(std::move(increment)));
 		body = make_statement<BlockStatement>(std::move(guts));
@@ -194,7 +198,7 @@ std::unique_ptr<Statement> Parser::ForStmt() {
 		condition = std::make_unique<Expression>(Literal { true });
 	}
 
-	std::vector<StatementPtr> guts {};
+	StatementPtrVector guts {};
 
 	auto loop = make_statement<WhileStatement>(
 	    std::move(condition),
@@ -209,16 +213,18 @@ std::unique_ptr<Statement> Parser::ForStmt() {
 	return make_statement<BlockStatement>(std::move(guts));
 }
 
-std::unique_ptr<Statement> Parser::ExpressionStmt() {
+StatementPtr Parser::ExpressionStmt() {
 	auto value { Expr() };
 	Consume(TokenType::Semicolon, "expected ';' after print statemenet");
 	return make_statement<ExpressionStatement>(std::move(value));
 }
 
-std::unique_ptr<Statement> Parser::VariableDecl() {
-	Token name = Consume(TokenType::Identifier, "Expect variable name.");
+StatementPtr Parser::VariableDecl() {
+	using enum TokenType;
 
-	std::unique_ptr<Expression> initializer = nullptr;
+	Token name = Consume(Identifier, "Expect variable name.");
+
+	ExpressionPtr initializer = nullptr;
 	if (MatchCurrent(TokenType::Equal)) {
 		initializer = Expr();
 	}
@@ -227,7 +233,7 @@ std::unique_ptr<Statement> Parser::VariableDecl() {
 	return make_statement<VariableDecleration>(name, std::move(initializer));
 }
 
-std::unique_ptr<Statement> Parser::FunctionDecl() {
+StatementPtr Parser::FunctionDecl() {
 	Token name = Consume(TokenType::Identifier, "Expect variable name.");
 	Consume(TokenType::LeftParen, "Expected '(' after function name.");
 	auto args { GetParameters() };
@@ -239,8 +245,8 @@ std::unique_ptr<Statement> Parser::FunctionDecl() {
 	return make_statement<FunctionDecleration>(name, args, std::move(body.Statements));
 }
 
-std::unique_ptr<Statement> Parser::BlockStmt() {
-	std::vector<std::unique_ptr<Statement>> statements {};
+StatementPtr Parser::BlockStmt() {
+	StatementPtrVector statements {};
 	while (GetCurrent().Type != TokenType::RightBrace && !IsAtEnd()) {
 		statements.push_back(Decleration());
 	}
@@ -250,19 +256,19 @@ std::unique_ptr<Statement> Parser::BlockStmt() {
 	return make_statement<BlockStatement>(std::move(statements));
 }
 
-std::unique_ptr<Expression> Parser::Expr() {
+ExpressionPtr Parser::Expr() {
 	return Assignment();
 }
 
-std::unique_ptr<Expression> Parser::Assignment() {
+ExpressionPtr Parser::Assignment() {
 	std::unique_ptr expr { Or() };
 
-	if (MatchCurrent(Equal)) {
+	if (MatchCurrent(TokenType::Equal)) {
 		Token equalOperator { GetPrevious() };
-		std::unique_ptr lhs { Assignment() };
+		std::unique_ptr value { Assignment() };
 
 		if (auto var = std::get_if<Variable>(&expr->Value)) {
-			return make_expression<Assign>(var->Name, std::move(lhs));
+			return make_expression<Assign>(var->Name, std::move(value));
 		}
 
 		throw RuntimeError(equalOperator, "Invalid Assigment Target");
@@ -271,8 +277,9 @@ std::unique_ptr<Expression> Parser::Assignment() {
 	return expr;
 }
 
-std::unique_ptr<Expression> Parser::Or() {
+ExpressionPtr Parser::Or() {
 	auto left { And() };
+
 	while (MatchCurrent(TokenType::Or)) {
 		auto orOp { GetPrevious() };
 		auto right { And() };
@@ -282,7 +289,7 @@ std::unique_ptr<Expression> Parser::Or() {
 	return left;
 }
 
-std::unique_ptr<Expression> Parser::And() {
+ExpressionPtr Parser::And() {
 	auto left { Ternary() };
 
 	while (MatchCurrent(TokenType::And)) {
@@ -294,7 +301,7 @@ std::unique_ptr<Expression> Parser::And() {
 	return left;
 }
 
-std::unique_ptr<Expression> Parser::Ternary() {
+ExpressionPtr Parser::Ternary() {
 	auto condition { Equality() };
 
 	if (MatchCurrent(TokenType::QuestionMark)) {
@@ -307,7 +314,8 @@ std::unique_ptr<Expression> Parser::Ternary() {
 	return condition;
 }
 
-std::unique_ptr<Expression> Parser::Equality() {
+ExpressionPtr Parser::Equality() {
+	using enum TokenType;
 	auto left { Comparison() };
 
 	while (MatchAny({ BangEqual, EqualEqual })) {
@@ -319,7 +327,8 @@ std::unique_ptr<Expression> Parser::Equality() {
 	return left;
 }
 
-std::unique_ptr<Expression> Parser::Comparison() {
+ExpressionPtr Parser::Comparison() {
+	using enum TokenType;
 	auto left { Term() };
 
 	while (MatchAny({ Greater, GreaterEqual, Less, LessEqual })) {
@@ -331,7 +340,8 @@ std::unique_ptr<Expression> Parser::Comparison() {
 	return left;
 }
 
-std::unique_ptr<Expression> Parser::Term() {
+ExpressionPtr Parser::Term() {
+	using enum TokenType;
 	auto left { Factor() };
 
 	while (MatchAny({ Plus, Minus })) {
@@ -343,7 +353,8 @@ std::unique_ptr<Expression> Parser::Term() {
 	return left;
 }
 
-std::unique_ptr<Expression> Parser::Factor() {
+ExpressionPtr Parser::Factor() {
+	using enum TokenType;
 	auto left { Unary() };
 
 	while (MatchAny({ Star, Slash, Percentage })) {
@@ -355,7 +366,8 @@ std::unique_ptr<Expression> Parser::Factor() {
 	return left;
 }
 
-std::unique_ptr<Expression> Parser::Unary() {
+ExpressionPtr Parser::Unary() {
+	using enum TokenType;
 	if (MatchAny({ Minus, Bang })) {
 		auto op { GetPrevious() };
 		auto right { Call() };
@@ -365,8 +377,9 @@ std::unique_ptr<Expression> Parser::Unary() {
 	return Call();
 }
 
-std::unique_ptr<Expression> Parser::Call() {
-	auto callee { Primary() };
+ExpressionPtr Parser::Call() {
+	using enum TokenType;
+	auto callee { IncDec() };
 
 	while (MatchCurrent(LeftParen)) {
 		auto args = GetArguments();
@@ -377,7 +390,19 @@ std::unique_ptr<Expression> Parser::Call() {
 	return callee;
 }
 
+ExpressionPtr Parser::IncDec() {
+	using enum TokenType;
+	auto target { Primary() };
+
+	while (MatchAny({ PlusPlus, MinusMinus })) {
+		return make_expression<Noct::Unary>(GetPrevious(), std::move(target));
+	}
+
+	return target;
+}
+
 std::vector<ExpressionPtr> Parser::GetArguments() {
+	using enum TokenType;
 	std::vector<ExpressionPtr> arguments {};
 
 	if (Check(RightParen)) {
@@ -392,6 +417,7 @@ std::vector<ExpressionPtr> Parser::GetArguments() {
 }
 
 std::vector<Token> Parser::GetParameters() {
+	using enum TokenType;
 	std::vector<Token> arguments {};
 
 	if (!Check(Identifier)) {
@@ -408,7 +434,7 @@ std::vector<Token> Parser::GetParameters() {
 	return arguments;
 }
 
-std::unique_ptr<Expression> Parser::Primary() {
+ExpressionPtr Parser::Primary() {
 	if (s_BinaryTokenTypes.contains(GetCurrent().Type)) {
 		const Token falsyOperator { Advance() };
 
@@ -419,42 +445,47 @@ std::unique_ptr<Expression> Parser::Primary() {
 		return RecoverRhs(falsyOperator.Type);
 	}
 
-	if (MatchCurrent(True)) {
+	if (MatchCurrent(TokenType::True)) {
 		return make_expression<Literal>(true);
 	}
 
-	if (MatchCurrent(False)) {
+	if (MatchCurrent(TokenType::Maybe)) {
+		return make_expression<Maybe>();
+	}
+
+	if (MatchCurrent(TokenType::False)) {
 		return make_expression<Literal>(false);
 	}
 
-	if (MatchCurrent(Nil)) {
-		return make_expression<Literal>(std::monostate {});
+	if (MatchCurrent(TokenType::Nil)) {
+		return make_expression<Noct::Maybe>();
 	}
 
-	if (MatchCurrent(Number)) {
+	if (MatchCurrent(TokenType::Number)) {
 		auto num { LiteralNumifier {}(GetPrevious().Lexeme) };
 		return make_expression<Literal>(*num);
 	}
 
-	if (MatchCurrent(String)) {
-		auto str { LiteralStringifier {}(GetPrevious().Lexeme) };
+	if (MatchCurrent(TokenType::String)) {
+		auto strToken { GetPrevious() };
+		auto str { strToken.Lexeme.substr(1, strToken.Lexeme.size() - 2) };
 		return make_expression<Literal>(str);
 	}
 
-	if (MatchCurrent(LeftParen)) {
+	if (MatchCurrent(TokenType::LeftParen)) {
 		auto guts { Expr() };
-		Consume(RightParen, "Expected ')' after expression");
+		Consume(TokenType::RightParen, "Expected ')' after expression");
 		return make_expression<Grouping>(std::move(guts));
 	}
 
-	if (MatchCurrent(Identifier)) {
+	if (MatchCurrent(TokenType::Identifier)) {
 		return make_expression<Variable>(GetPrevious());
 	}
 
 	throw RuntimeError(GetCurrent(), "Expected Expression");
 }
 
-std::unique_ptr<Expression> Parser::RecoverRhs(TokenType type) {
+ExpressionPtr Parser::RecoverRhs(TokenType type) {
 	switch (type) {
 	case TokenType::BangEqual:
 	case TokenType::EqualEqual:

@@ -2,7 +2,7 @@
 #include <memory>
 #include <utility>
 
-#include "noct/parser/expression/Expression.h"
+#include "noct/parser/expression/ExpressionFwd.h"
 
 namespace Noct {
 

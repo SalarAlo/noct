@@ -1,11 +1,11 @@
 #pragma once
 
-#include "noct/parser/expression/FunctionValue.h"
-#include <memory>
 #include <optional>
 #include <stdexcept>
 #include <string>
 #include <variant>
+
+#include "noct/parser/expression/FunctionValue.h"
 
 namespace Noct {
 struct LiteralNumifier {
@@ -32,7 +32,7 @@ struct LiteralNumifier {
 		return 0;
 	}
 
-	double operator()(const std::shared_ptr<FunctionValue>& f) const {
+	double operator()(const FunctionRef& f) const {
 		return f->ArgumentNames.size();
 	}
 };

@@ -7,7 +7,7 @@ namespace Noct {
 enum class TokenType {
     LeftParen, RightParen,
     LeftBrace, RightBrace,
-    Comma, Dot, Minus, Plus, Semicolon, Slash, Star,
+    Comma, Dot, Minus, MinusMinus, Plus, PlusPlus, Semicolon, Slash, Star,
     QuestionMark, Colon, Percentage,
 
     Bang, BangEqual,
@@ -19,6 +19,7 @@ enum class TokenType {
 
     And, Class, Else, False, Fn, For, If, Nil, Or,
     Print, Return, Super, This, True, Make, While, Break,
+    Maybe,
 
     Eof
 };

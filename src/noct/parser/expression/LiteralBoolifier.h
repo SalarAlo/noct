@@ -1,9 +1,9 @@
 #pragma once
 
-#include "noct/parser/expression/FunctionValue.h"
-#include <memory>
 #include <string>
 #include <variant>
+
+#include "noct/parser/expression/FunctionValue.h"
 
 namespace Noct {
 struct LiteralBoolifier {
@@ -23,7 +23,7 @@ struct LiteralBoolifier {
 		return false;
 	}
 
-	bool operator()(const std::shared_ptr<FunctionValue>&) const {
+	bool operator()(const FunctionRef&) const {
 		return true;
 	}
 };

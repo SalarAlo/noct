@@ -1,5 +1,6 @@
-#include "noct/lexer/Token.h"
 #include <sstream>
+
+#include "noct/lexer/Token.h"
 
 namespace Noct {
 

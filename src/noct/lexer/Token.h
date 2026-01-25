@@ -1,7 +1,8 @@
 #pragma once
 
-#include <string>
 #include <cstddef>
+
+#include <string>
 
 #include "noct/lexer/TokenType.h"
 

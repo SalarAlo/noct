@@ -1,14 +1,16 @@
-#include "Run.h"
-
 #include <cstddef>
 #include <filesystem>
 #include <fstream>
 
+#include "Run.h"
+
 #include "noct/Context.h"
 #include "noct/Logger.h"
+
+#include "noct/lexer/Lexer.h"
+
 #include "noct/parser/Interpreter.h"
 #include "noct/parser/Parser.h"
-#include "noct/lexer/Lexer.h"
 
 namespace Noct {
 

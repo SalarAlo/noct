@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "noct/Context.h"
+
 #include "noct/lexer/Token.h"
 #include "noct/lexer/TokenType.h"
 

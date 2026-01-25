@@ -1,7 +1,8 @@
 #pragma once
 
-#include "noct/parser/expression/Expression.h"
 #include <vector>
+
+#include "noct/parser/expression/ExpressionFwd.h"
 
 namespace Noct {
 

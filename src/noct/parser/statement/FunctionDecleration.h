@@ -3,6 +3,7 @@
 #include <vector>
 
 #include "noct/lexer/Token.h"
+
 #include "noct/parser/statement/StatementFwd.h"
 
 namespace Noct {
@@ -10,7 +11,7 @@ namespace Noct {
 struct FunctionDecleration {
 	Token Name;
 	std::vector<Token> ArgumentNames;
-	std::vector<StatementPtr> Body;
+	StatementPtrVector Body;
 };
 
 }

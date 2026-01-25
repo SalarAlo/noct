@@ -1,8 +1,9 @@
 #pragma once
 
-#include "noct/lexer/Token.h"
 #include <exception>
 #include <string>
+
+#include "noct/lexer/Token.h"
 
 namespace Noct {
 

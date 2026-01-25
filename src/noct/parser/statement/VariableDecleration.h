@@ -1,15 +1,14 @@
 #pragma once
 
-#include <memory>
-
 #include "noct/lexer/Token.h"
-#include "noct/parser/expression/Expression.h"
+
+#include "noct/parser/expression/ExpressionFwd.h"
 
 namespace Noct {
 
 struct VariableDecleration {
 	Token Name;
-	std::unique_ptr<Expression> Initialiser;
+	ExpressionPtr Initialiser;
 };
 
 }

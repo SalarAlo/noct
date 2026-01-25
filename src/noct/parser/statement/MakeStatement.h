@@ -2,8 +2,8 @@
 #include <memory>
 #include <utility>
 
-#include "noct/parser/statement/StatementFwd.h"
 #include "noct/parser/statement/Statement.h"
+#include "noct/parser/statement/StatementFwd.h"
 
 namespace Noct {
 

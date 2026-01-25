@@ -2,11 +2,11 @@
 
 #include <memory>
 
-#include "noct/parser/expression/Expression.h"
+#include "noct/parser/expression/ExpressionFwd.h"
 
 namespace Noct {
 struct Grouping {
-	std::unique_ptr<Expression> GroupExpr {};
+	ExpressionPtr GroupExpr {};
 };
 
 }

@@ -1,36 +1,38 @@
-#include "noct/parser/Interpreter.h"
+// noincludeformat
 
 #include <iostream>
-#include <memory>
+#include <random>
 #include <string>
 #include <variant>
+#include <memory>
+
+#include "noct/parser/Interpreter.h"
 
 #include "noct/exceptions/BreakException.h"
 #include "noct/exceptions/RuntimeException.h"
+
+#include "noct/lexer/NoctObject.h"
 #include "noct/lexer/Token.h"
 #include "noct/lexer/TokenType.h"
 
+#include "noct/parser/expression/Expression.h"
 #include "noct/parser/expression/FunctionValue.h"
+#include "noct/parser/expression/LiteralBoolifier.h"
+#include "noct/parser/expression/LiteralStringifier.h"
+
 #include "noct/parser/statement/BlockStatement.h"
 #include "noct/parser/statement/BreakStatement.h"
 #include "noct/parser/statement/ExpressionStatement.h"
-
-#include "noct/parser/expression/LiteralBoolifier.h"
-#include "noct/parser/expression/Expression.h"
-#include "noct/parser/expression/LiteralStringifier.h"
-
 #include "noct/parser/statement/FunctionDecleration.h"
-#include "noct/parser/statement/Statement.h"
 #include "noct/parser/statement/IfStatement.h"
-#include "noct/parser/statement/ExpressionStatement.h"
-#include "noct/parser/statement/BlockStatement.h"
 #include "noct/parser/statement/PrintStatement.h"
+#include "noct/parser/statement/Statement.h"
 #include "noct/parser/statement/VariableDecleration.h"
 #include "noct/parser/statement/WhileStatement.h"
 
 namespace Noct {
 
-void Interpreter::Interpret(const std::vector<std::unique_ptr<Statement>>& statements) {
+void Interpreter::Interpret(const StatementPtrVector& statements) {
 	HoistFunctions(statements);
 
 	for (const auto& stmt : statements) {
@@ -38,13 +40,10 @@ void Interpreter::Interpret(const std::vector<std::unique_ptr<Statement>>& state
 	}
 }
 
-void Interpreter::HoistFunctions(const std::vector<StatementPtr>& stmts) {
+void Interpreter::HoistFunctions(const StatementPtrVector& stmts) {
 	for (const auto& stmt : stmts) {
 		if (auto fn = std::get_if<FunctionDecleration>(&stmt->Instruction)) {
-			auto value = std::make_shared<FunctionValue>(
-			    std::move(fn->Body),
-			    fn->ArgumentNames,
-			    fn->Name);
+			NoctObject value { std::make_shared<FunctionValue>(std::move(fn->Body), fn->ArgumentNames, fn->Name) };
 			m_Env->Define(fn->Name, value, true);
 		}
 	}
@@ -130,6 +129,22 @@ void Interpreter::operator()(const Unary& unary) {
 	auto rightDoublePtr { std::get_if<double>(&m_Value) };
 
 	switch (unary.Operator.Type) {
+	case TokenType::PlusPlus: {
+		EnsureNumbers(unary.Operator, rightDoublePtr);
+		Expression& expr { *unary.Right };
+		auto var { std::get<Variable>(expr.Value) };
+		m_Env->Assign(var.Name, *rightDoublePtr + 1);
+		m_Value = *rightDoublePtr + 1;
+		break;
+	}
+	case TokenType::MinusMinus: {
+		EnsureNumbers(unary.Operator, rightDoublePtr);
+		Expression& expr { *unary.Right };
+		auto var { std::get<Variable>(expr.Value) };
+		m_Env->Assign(var.Name, *rightDoublePtr - 1);
+		m_Value = *rightDoublePtr - 1;
+		break;
+	}
 	case TokenType::Minus:
 		EnsureNumbers(unary.Operator, rightDoublePtr);
 		m_Value = -(*rightDoublePtr);
@@ -141,6 +156,12 @@ void Interpreter::operator()(const Unary& unary) {
 		m_Value = std::monostate {};
 		break;
 	}
+}
+
+void Interpreter::operator()(const Maybe&) {
+	static std::mt19937 rng { std::random_device {}() };
+	static std::bernoulli_distribution dis(0.5);
+	m_Value = static_cast<bool>(dis(rng));
 }
 
 void Interpreter::operator()(const Binary& binary) {
@@ -276,10 +297,11 @@ void Interpreter::operator()(const Logical& exp) {
 void Interpreter::operator()(const Call& exp) {
 	Evaluate(*exp.Callee);
 
-	auto fn { std::get<std::shared_ptr<FunctionValue>>(m_Value) };
+	auto fn { std::get<FunctionRef>(m_Value) };
 
 	if (exp.Arguments.size() != fn->ArgumentNames.size()) {
-		throw new RuntimeError(*fn->Name, std::format("Function expects {} arguments", fn->ArgumentNames.size()));
+		auto errorMsg { std::format("Function expects {} arguments", fn->ArgumentNames.size()) };
+		throw new RuntimeError(*fn->Name, errorMsg);
 	}
 
 	auto evaluatedArgs = std::vector<NoctObject>();

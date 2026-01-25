@@ -1,17 +1,16 @@
 #pragma once
 
+#include <initializer_list>
 #include <memory>
 #include <set>
 #include <vector>
-#include <initializer_list>
 
 #include "noct/Context.h"
 
 #include "noct/lexer/Token.h"
 #include "noct/lexer/TokenType.h"
 
-#include "noct/parser/expression/Expression.h"
-#include "noct/parser/expression/ExpressionDef.h"
+#include "noct/parser/expression/ExpressionFwd.h"
 
 #include "noct/parser/statement/Statement.h"
 
@@ -20,36 +19,37 @@ namespace Noct {
 class Parser {
 public:
 	Parser(const std::vector<Token>& tokens, Context& ctx);
-	std::vector<StatementPtr> Parse();
+	StatementPtrVector Parse();
 
 private:
 	std::unique_ptr<Noct::Statement> Stmt();
-	std::unique_ptr<Statement> Decleration();
+	StatementPtr Decleration();
 
-	std::unique_ptr<Statement> PrintStmt();
-	std::unique_ptr<Statement> BlockStmt();
-	std::unique_ptr<Statement> ExpressionStmt();
-	std::unique_ptr<Statement> IfStmt();
-	std::unique_ptr<Statement> WhileStmt();
-	std::unique_ptr<Statement> ForStmt();
-	std::unique_ptr<Statement> BreakStmt();
-	std::unique_ptr<Statement> VariableDecl();
-	std::unique_ptr<Statement> FunctionDecl();
+	StatementPtr PrintStmt();
+	StatementPtr BlockStmt();
+	StatementPtr ExpressionStmt();
+	StatementPtr IfStmt();
+	StatementPtr WhileStmt();
+	StatementPtr ForStmt();
+	StatementPtr BreakStmt();
+	StatementPtr VariableDecl();
+	StatementPtr FunctionDecl();
 
-	std::unique_ptr<Expression> Expr();
-	std::unique_ptr<Expression> Assignment();
-	std::unique_ptr<Expression> Or();
-	std::unique_ptr<Expression> And();
-	std::unique_ptr<Expression> Ternary();
-	std::unique_ptr<Expression> Equality();
-	std::unique_ptr<Expression> Comparison();
-	std::unique_ptr<Expression> Term();
-	std::unique_ptr<Expression> Factor();
-	std::unique_ptr<Expression> Unary();
-	std::unique_ptr<Expression> Call();
-	std::unique_ptr<Expression> Primary();
+	ExpressionPtr Expr();
+	ExpressionPtr Assignment();
+	ExpressionPtr Or();
+	ExpressionPtr And();
+	ExpressionPtr Ternary();
+	ExpressionPtr Equality();
+	ExpressionPtr Comparison();
+	ExpressionPtr Term();
+	ExpressionPtr Factor();
+	ExpressionPtr Unary();
+	ExpressionPtr Call();
+	ExpressionPtr IncDec();
+	ExpressionPtr Primary();
 
-	std::unique_ptr<Expression> RecoverRhs(TokenType type);
+	ExpressionPtr RecoverRhs(TokenType type);
 
 	void Synchronize();
 

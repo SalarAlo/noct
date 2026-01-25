@@ -1,13 +1,15 @@
 #pragma once
 
+#include <variant>
+
 #include "noct/parser/statement/BlockStatement.h"
+#include "noct/parser/statement/BreakStatement.h"
 #include "noct/parser/statement/ExpressionStatement.h"
 #include "noct/parser/statement/FunctionDecleration.h"
 #include "noct/parser/statement/IfStatement.h"
 #include "noct/parser/statement/PrintStatement.h"
 #include "noct/parser/statement/VariableDecleration.h"
 #include "noct/parser/statement/WhileStatement.h"
-#include "noct/parser/statement/BreakStatement.h"
 
 namespace Noct {
 

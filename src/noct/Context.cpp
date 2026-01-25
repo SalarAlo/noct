@@ -1,4 +1,5 @@
 #include "noct/Context.h"
+
 #include "noct/Logger.h"
 
 namespace Noct {
