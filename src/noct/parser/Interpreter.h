@@ -9,8 +9,10 @@
 
 #include "noct/parser/expression/Expression.h"
 #include "noct/parser/expression/ExpressionFwd.h"
+#include "noct/parser/expression/Lambda.h"
 
 #include "noct/parser/statement/FunctionDecleration.h"
+#include "noct/parser/statement/ReturnStatement.h"
 #include "noct/parser/statement/Statement.h"
 #include "noct/parser/statement/StatementFwd.h"
 
@@ -31,6 +33,7 @@ public:
 	void operator()(const Logical&);
 	void operator()(const Call&);
 	void operator()(const Maybe&);
+	void operator()(Lambda&);
 
 	void operator()(const ExpressionStatement&);
 	void operator()(const PrintStatement&);
@@ -39,6 +42,7 @@ public:
 	void operator()(const BlockStatement&);
 	void operator()(const IfStatement&);
 	void operator()(const WhileStatement&);
+	void operator()(const ReturnStatement&);
 	void operator()(const BreakStatement&);
 
 	void Interpret(const StatementPtrVector& statements);
@@ -51,7 +55,7 @@ public:
 
 	NoctObject GetLiteral() const { return m_Value; }
 
-	void Evaluate(const Expression& exp);
+	void Evaluate(Expression& exp);
 	void Execute(Statement& exp);
 
 private:

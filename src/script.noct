@@ -1,9 +1,8 @@
-while(true) {
-
-if maybe {
-	print "yipi";
-} else {
-	print "nah";
+fn add(a, b) {
+	return a + b;
 }
 
-}
+make x = 10;
+make f = fn(y) { print x + y; };
+x = 20;
+f(add(1, 8));

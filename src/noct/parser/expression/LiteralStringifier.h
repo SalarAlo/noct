@@ -27,7 +27,7 @@ struct LiteralStringifier {
 		std::string out {};
 		out.append(f->Name.has_value() ? f->Name->Lexeme : "<ananoymous_function>");
 		out.append("(");
-		for (const auto& arg : f->ArgumentNames) {
+		for (const auto& arg : f->ParameterNames) {
 			out.append(arg.Lexeme);
 		}
 		out.append(");");

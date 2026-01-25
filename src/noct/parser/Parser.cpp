@@ -83,6 +83,26 @@ StatementPtrVector Parser::Parse() {
 	}
 }
 
+StatementPtr Parser::Decleration() {
+	try {
+		if (MatchCurrent(TokenType::Make))
+			return VariableDecl();
+
+		if (Check(TokenType::Fn)) {
+			if (auto res = FunctionDecl(); res)
+				return res;
+			else
+				return ExpressionStmt();
+		}
+
+		return Stmt();
+	} catch (const RuntimeError& e) {
+		m_Context.RegisterTokenError(e.GetToken(), e.what());
+		Synchronize();
+		return nullptr;
+	}
+}
+
 StatementPtr Parser::Stmt() {
 	if (MatchCurrent(TokenType::Print))
 		return PrintStmt();
@@ -93,6 +113,10 @@ StatementPtr Parser::Stmt() {
 
 	if (MatchCurrent(TokenType::If)) {
 		return IfStmt();
+	}
+
+	if (MatchCurrent(TokenType::Return)) {
+		return ReturnStmt();
 	}
 
 	if (MatchCurrent(TokenType::While)) {
@@ -109,19 +133,14 @@ StatementPtr Parser::Stmt() {
 	return ExpressionStmt();
 }
 
-StatementPtr Parser::Decleration() {
-	try {
-		if (MatchCurrent(TokenType::Make))
-			return VariableDecl();
-		if (MatchCurrent(TokenType::Fn))
-			return FunctionDecl();
-
-		return Stmt();
-	} catch (const RuntimeError& e) {
-		m_Context.RegisterTokenError(e.GetToken(), e.what());
-		Synchronize();
-		return nullptr;
+StatementPtr Parser::ReturnStmt() {
+	if (MatchCurrent(TokenType::Semicolon)) {
+		return make_statement<ReturnStatement>(nullptr);
 	}
+
+	auto value { Expr() };
+	Consume(TokenType::Semicolon, "';' after return statemenet exprected");
+	return make_statement<ReturnStatement>(std::move(value));
 }
 
 StatementPtr Parser::PrintStmt() {
@@ -234,7 +253,13 @@ StatementPtr Parser::VariableDecl() {
 }
 
 StatementPtr Parser::FunctionDecl() {
-	Token name = Consume(TokenType::Identifier, "Expect variable name.");
+	if (!CheckNext(TokenType::Identifier)) {
+		return nullptr;
+	}
+
+	Advance();
+	Token name = Consume(TokenType::Identifier, "Expected variable name.");
+
 	Consume(TokenType::LeftParen, "Expected '(' after function name.");
 	auto args { GetParameters() };
 	Consume(TokenType::RightParen, "Expected ')' after argument list.");
@@ -445,6 +470,17 @@ ExpressionPtr Parser::Primary() {
 		return RecoverRhs(falsyOperator.Type);
 	}
 
+	if (MatchCurrent(TokenType::Fn)) {
+		Consume(TokenType::LeftParen, "Expected '(' after lambda fn");
+		auto params { GetParameters() };
+		Consume(TokenType::RightParen, "Expected ')' after lambda arguments.");
+		Consume(TokenType::LeftBrace, "Expected '{' after lambda argument list.");
+
+		BlockStatement body { std::get<BlockStatement>(std::move(BlockStmt()->Instruction)) };
+
+		return make_expression<Lambda>(params, std::move(body.Statements));
+	}
+
 	if (MatchCurrent(TokenType::True)) {
 		return make_expression<Literal>(true);
 	}
@@ -535,6 +571,10 @@ bool Parser::Check(TokenType type) {
 	return GetCurrent().Type == type;
 }
 
+bool Parser::CheckNext(TokenType type) {
+	return GetNext().Type == type;
+}
+
 bool Parser::IsAtEnd() const {
 	return m_Current < m_Tokens.size() ? m_Tokens[m_Current].Type == TokenType::Eof : false;
 }
@@ -560,6 +600,13 @@ Token Parser::GetCurrent() const {
 		return GetPrevious();
 
 	return m_Tokens[m_Current];
+}
+
+Token Parser::GetNext() const {
+	if (m_Current >= m_Tokens.size() - 1)
+		return GetPrevious();
+
+	return m_Tokens[m_Current + 1];
 }
 
 Token Parser::GetPrevious() const {

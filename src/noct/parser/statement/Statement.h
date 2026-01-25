@@ -8,6 +8,7 @@
 #include "noct/parser/statement/FunctionDecleration.h"
 #include "noct/parser/statement/IfStatement.h"
 #include "noct/parser/statement/PrintStatement.h"
+#include "noct/parser/statement/ReturnStatement.h"
 #include "noct/parser/statement/VariableDecleration.h"
 #include "noct/parser/statement/WhileStatement.h"
 
@@ -18,7 +19,7 @@ public:
 	using Variant = std::variant<
 	    BlockStatement, ExpressionStatement, IfStatement,
 	    VariableDecleration, FunctionDecleration,
-	    PrintStatement, WhileStatement, BreakStatement>;
+	    PrintStatement, WhileStatement, BreakStatement, ReturnStatement>;
 
 public:
 	Variant Instruction;

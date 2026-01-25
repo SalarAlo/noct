@@ -1,14 +1,13 @@
-// noincludeformat
-
 #include <iostream>
+#include <memory>
 #include <random>
 #include <string>
 #include <variant>
-#include <memory>
 
 #include "noct/parser/Interpreter.h"
 
 #include "noct/exceptions/BreakException.h"
+#include "noct/exceptions/RetrunException.h"
 #include "noct/exceptions/RuntimeException.h"
 
 #include "noct/lexer/NoctObject.h"
@@ -17,6 +16,7 @@
 
 #include "noct/parser/expression/Expression.h"
 #include "noct/parser/expression/FunctionValue.h"
+#include "noct/parser/expression/Lambda.h"
 #include "noct/parser/expression/LiteralBoolifier.h"
 #include "noct/parser/expression/LiteralStringifier.h"
 
@@ -26,6 +26,7 @@
 #include "noct/parser/statement/FunctionDecleration.h"
 #include "noct/parser/statement/IfStatement.h"
 #include "noct/parser/statement/PrintStatement.h"
+#include "noct/parser/statement/ReturnStatement.h"
 #include "noct/parser/statement/Statement.h"
 #include "noct/parser/statement/VariableDecleration.h"
 #include "noct/parser/statement/WhileStatement.h"
@@ -43,7 +44,13 @@ void Interpreter::Interpret(const StatementPtrVector& statements) {
 void Interpreter::HoistFunctions(const StatementPtrVector& stmts) {
 	for (const auto& stmt : stmts) {
 		if (auto fn = std::get_if<FunctionDecleration>(&stmt->Instruction)) {
-			NoctObject value { std::make_shared<FunctionValue>(std::move(fn->Body), fn->ArgumentNames, fn->Name) };
+			NoctObject value {
+				std::make_shared<FunctionValue>(
+				    &fn->Body,
+				    fn->ArgumentNames,
+				    fn->Name,
+				    m_Env.get())
+			};
 			m_Env->Define(fn->Name, value, true);
 		}
 	}
@@ -85,8 +92,17 @@ void Interpreter::operator()(const BlockStatement& blockStmt) {
 	m_Env = std::move(saved);
 }
 
-void Interpreter::operator()(const BreakStatement& _) {
+void Interpreter::operator()(const BreakStatement&) {
 	throw BreakException {};
+}
+
+void Interpreter::operator()(const ReturnStatement& stmt) {
+	if (stmt.ReturnExpr)
+		Evaluate(*stmt.ReturnExpr);
+	else
+		m_Value = std::monostate {};
+
+	throw ReturnException { m_Value };
 }
 
 void Interpreter::operator()(const WhileStatement& whileStmt) {
@@ -105,6 +121,7 @@ void Interpreter::operator()(const WhileStatement& whileStmt) {
 void Interpreter::operator()(const IfStatement& ifStmt) {
 	Evaluate(*ifStmt.Condition);
 	bool condition { std::visit(LiteralBoolifier {}, m_Value) };
+
 	if (condition) {
 		Execute(*ifStmt.TrueStatement);
 	} else if (ifStmt.FalseStatement) {
@@ -112,9 +129,10 @@ void Interpreter::operator()(const IfStatement& ifStmt) {
 	}
 }
 
-void Interpreter::operator()(FunctionDecleration& fnDecl) {
+void Interpreter::operator()(FunctionDecleration&) {
 	// intentionally empty because we already hoisted
 }
+
 void Interpreter::operator()(const Literal& literal) {
 	m_Value = literal.Value;
 }
@@ -164,6 +182,14 @@ void Interpreter::operator()(const Maybe&) {
 	m_Value = static_cast<bool>(dis(rng));
 }
 
+void Interpreter::operator()(Lambda& lam) {
+	m_Value = std::make_shared<FunctionValue>(
+	    &lam.Body,
+	    lam.Parameters,
+	    std::nullopt,
+	    m_Env.get());
+}
+
 void Interpreter::operator()(const Binary& binary) {
 	Evaluate(*binary.Left);
 	auto left = m_Value;
@@ -177,9 +203,6 @@ void Interpreter::operator()(const Binary& binary) {
 	auto rightStrPtr = std::get_if<std::string>(&right);
 	auto leftStrPtr = std::get_if<std::string>(&left);
 
-	auto rightBoolPtr = std::get_if<bool>(&right);
-	auto leftBoolPtr = std::get_if<bool>(&left);
-
 	m_Value = std::monostate {};
 
 	switch (binary.Operator.Type) {
@@ -187,73 +210,81 @@ void Interpreter::operator()(const Binary& binary) {
 		EnsureNumbers(binary.Operator, rightDoublePtr, leftDoublePtr);
 		m_Value = *leftDoublePtr - *rightDoublePtr;
 		break;
+
 	case TokenType::Plus: {
 		if (rightStrPtr && leftStrPtr) {
 			m_Value = *leftStrPtr + *rightStrPtr;
 			break;
 		}
-
 		if (rightStrPtr) {
 			m_Value = std::visit(LiteralStringifier {}, left) + *rightStrPtr;
 			break;
 		}
-
 		if (leftStrPtr) {
 			m_Value = *leftStrPtr + std::visit(LiteralStringifier {}, right);
 			break;
 		}
-
 		if (leftDoublePtr && rightDoublePtr) {
 			m_Value = *leftDoublePtr + *rightDoublePtr;
 			break;
 		}
-
 		throw RuntimeError(binary.Operator, "Operands must be two numbers or at least one strings");
 	}
+
 	case TokenType::Slash:
 		EnsureNumbers(binary.Operator, rightDoublePtr, leftDoublePtr);
-
 		if (*rightDoublePtr == 0) {
 			throw RuntimeError(binary.Operator, "Right hand side of division operator is 0. Can not divide by 0");
 		}
-
 		m_Value = *leftDoublePtr / *rightDoublePtr;
 		break;
+
 	case TokenType::Percentage:
 		EnsureNumbers(binary.Operator, rightDoublePtr, leftDoublePtr);
-		m_Value = static_cast<double>(static_cast<int>(*leftDoublePtr) % static_cast<int>(*rightDoublePtr));
+		m_Value = static_cast<double>(
+		    static_cast<int>(*leftDoublePtr) % static_cast<int>(*rightDoublePtr));
 		break;
+
 	case TokenType::Star:
 		EnsureNumbers(binary.Operator, rightDoublePtr, leftDoublePtr);
 		m_Value = *leftDoublePtr * *rightDoublePtr;
 		break;
+
 	case TokenType::Greater:
 		EnsureNumbers(binary.Operator, rightDoublePtr, leftDoublePtr);
 		m_Value = *leftDoublePtr > *rightDoublePtr;
 		break;
+
 	case TokenType::Less:
 		EnsureNumbers(binary.Operator, rightDoublePtr, leftDoublePtr);
 		m_Value = *leftDoublePtr < *rightDoublePtr;
 		break;
+
 	case TokenType::LessEqual:
 		EnsureNumbers(binary.Operator, rightDoublePtr, leftDoublePtr);
 		m_Value = *leftDoublePtr <= *rightDoublePtr;
 		break;
+
 	case TokenType::GreaterEqual:
 		EnsureNumbers(binary.Operator, rightDoublePtr, leftDoublePtr);
 		m_Value = *leftDoublePtr >= *rightDoublePtr;
 		break;
+
 	case TokenType::BangEqual:
 		m_Value = !IsEqual(left, right);
 		break;
+
 	case TokenType::EqualEqual:
 		m_Value = IsEqual(left, right);
 		break;
-	case Noct::TokenType::Comma:
+
+	case TokenType::Comma:
 		m_Value = right;
 		break;
+
 	default:
 		m_Value = std::monostate {};
+		break;
 	}
 }
 
@@ -284,47 +315,53 @@ void Interpreter::operator()(const Logical& exp) {
 	if (exp.Operator.Type == TokenType::And) {
 		if (!left)
 			return;
-
 		Evaluate(*exp.Right);
-	} else if (exp.Operator.Type == TokenType::Or) {
-		if (left)
-			return;
-
-		Evaluate(*exp.Right);
+		return;
 	}
+
+	if (left)
+		return;
+	Evaluate(*exp.Right);
 }
 
 void Interpreter::operator()(const Call& exp) {
 	Evaluate(*exp.Callee);
 
-	auto fn { std::get<FunctionRef>(m_Value) };
-
-	if (exp.Arguments.size() != fn->ArgumentNames.size()) {
-		auto errorMsg { std::format("Function expects {} arguments", fn->ArgumentNames.size()) };
-		throw new RuntimeError(*fn->Name, errorMsg);
+	auto fnPtr = std::get_if<FunctionRef>(&m_Value);
+	if (!fnPtr || !(*fnPtr)) {
+		throw "Can only call functions.";
 	}
 
-	auto evaluatedArgs = std::vector<NoctObject>();
-	evaluatedArgs.reserve(exp.Arguments.size());
+	auto fn = *fnPtr;
 
-	Environment* previous = m_Env.get();
-	auto local = std::make_unique<Environment>(previous);
+	if (exp.Arguments.size() != fn->ParameterNames.size()) {
+		auto errorMsg { std::format("Function expects {} arguments", fn->ParameterNames.size()) };
+		throw 1;
+	}
 
-	for (auto i { 0uz }; i < fn->ArgumentNames.size(); i++) {
+	Environment* parent = fn->Closure ? fn->Closure : m_Env.get();
+	auto local = std::make_unique<Environment>(parent);
+
+	for (size_t i = 0; i < fn->ParameterNames.size(); i++) {
 		Evaluate(*exp.Arguments[i]);
-		local->Define(fn->ArgumentNames[i], m_Value, true);
+		local->Define(fn->ParameterNames[i], m_Value, true);
 	}
 
 	auto saved = std::move(m_Env);
 	m_Env = std::move(local);
 
-	for (const auto& stmt : fn->Body)
-		Execute(*stmt);
+	for (const auto& stmt : *fn->Body) {
+		try {
+			Execute(*stmt);
+		} catch (const ReturnException& e) {
+			m_Value = e.GetObject();
+		}
+	}
 
 	m_Env = std::move(saved);
 }
 
-void Interpreter::Evaluate(const Expression& exp) {
+void Interpreter::Evaluate(Expression& exp) {
 	std::visit(*this, exp.Value);
 }
 
@@ -335,14 +372,12 @@ void Interpreter::Execute(Statement& stmt) {
 void Interpreter::EnsureNumbers(const Token& op, double* operand) {
 	if (operand)
 		return;
-
 	throw RuntimeError(op, "Operand must be a number.");
 }
 
 void Interpreter::EnsureNumbers(const Token& op, double* operand1, double* operand2) {
 	if (operand1 && operand2)
 		return;
-
 	throw RuntimeError(op, "Operands must be a number.");
 }
 

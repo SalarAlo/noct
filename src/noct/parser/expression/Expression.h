@@ -7,6 +7,7 @@
 #include "noct/parser/expression/Binary.h"
 #include "noct/parser/expression/Call.h"
 #include "noct/parser/expression/Grouping.h"
+#include "noct/parser/expression/Lambda.h"
 #include "noct/parser/expression/Literal.h"
 #include "noct/parser/expression/Logical.h"
 #include "noct/parser/expression/Maybe.h"
@@ -27,6 +28,7 @@ struct Expression {
 	    Grouping,
 	    Ternary,
 	    Call,
+	    Lambda,
 	    Maybe>;
 
 	Variant Value;

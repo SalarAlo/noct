@@ -8,12 +8,14 @@
 #include "noct/parser/statement/StatementFwd.h"
 
 namespace Noct {
+struct Environment;
 
 struct FunctionValue {
-	StatementPtrVector Body;
-	std::vector<Token> ArgumentNames;
+	const StatementPtrVector* Body;
+	std::vector<Token> ParameterNames;
 	std::optional<Token> Name;
 
+	Environment* Closure;
 	~FunctionValue();
 };
 
@@ -21,7 +23,7 @@ using FunctionRef = std::shared_ptr<FunctionValue>;
 
 inline bool operator==(const FunctionValue& a, const FunctionValue& b) {
 	return a.Body == b.Body
-	    && a.ArgumentNames == b.ArgumentNames
+	    && a.ParameterNames == b.ParameterNames
 	    && a.Name == b.Name;
 }
 

@@ -32,6 +32,7 @@ private:
 	StatementPtr WhileStmt();
 	StatementPtr ForStmt();
 	StatementPtr BreakStmt();
+	StatementPtr ReturnStmt();
 	StatementPtr VariableDecl();
 	StatementPtr FunctionDecl();
 
@@ -58,12 +59,14 @@ private:
 
 	bool MatchAny(const std::initializer_list<TokenType>& types);
 	bool Check(TokenType type);
+	bool CheckNext(TokenType type);
 	bool MatchCurrent(TokenType type);
 	bool IsAtEnd() const;
 
 	Token Advance();
 	Token Consume(TokenType type, std::string_view msg);
 	Token GetCurrent() const;
+	Token GetNext() const;
 	Token GetPrevious() const;
 
 private:

@@ -33,7 +33,7 @@ struct LiteralNumifier {
 	}
 
 	double operator()(const FunctionRef& f) const {
-		return f->ArgumentNames.size();
+		return f->ParameterNames.size();
 	}
 };
 }
