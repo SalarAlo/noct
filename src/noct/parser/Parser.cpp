@@ -405,15 +405,15 @@ ExpressionPtr Parser::Unary() {
 
 ExpressionPtr Parser::Call() {
 	using enum TokenType;
-	auto callee { IncDec() };
+	auto expr { IncDec() };
 
 	while (MatchCurrent(LeftParen)) {
 		auto args = GetArguments();
 		Consume(RightParen, "Expected ')' after arguments.");
-		return make_expression<Noct::Call>(std::move(callee), std::move(args));
+		expr = std::move(make_expression<Noct::Call>(std::move(expr), std::move(args)));
 	}
 
-	return callee;
+	return expr;
 }
 
 ExpressionPtr Parser::IncDec() {
@@ -421,7 +421,7 @@ ExpressionPtr Parser::IncDec() {
 	auto target { Primary() };
 
 	while (MatchAny({ PlusPlus, MinusMinus })) {
-		return make_expression<Noct::Unary>(GetPrevious(), std::move(target));
+		target = make_expression<Noct::Unary>(GetPrevious(), std::move(target));
 	}
 
 	return target;

@@ -1,9 +1,9 @@
-#include "noct/lexer/Lexer.h"
-
 #include <fmt/format.h>
 
-#include "noct/lexer/TokenType.h"
+#include "noct/lexer/Lexer.h"
+
 #include "noct/lexer/Keywords.h"
+#include "noct/lexer/TokenType.h"
 
 namespace Noct {
 

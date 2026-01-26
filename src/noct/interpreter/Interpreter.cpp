@@ -1,6 +1,7 @@
 #include <iostream>
 #include <memory>
 #include <random>
+#include <stdexcept>
 #include <string>
 #include <variant>
 
@@ -141,19 +142,28 @@ void Interpreter::operator()(const Unary& unary) {
 
 	switch (unary.Operator.Type) {
 	case TokenType::PlusPlus: {
-		EnsureNumbers(unary.Operator, rightDoublePtr);
-		Expression& expr { *unary.Right };
-		auto var { std::get<Variable>(expr.Value) };
-		m_Env->Assign(var.Slot, var.Depth, *rightDoublePtr + 1);
-		m_Value = *rightDoublePtr + 1;
+		try {
+			EnsureNumbers(unary.Operator, rightDoublePtr);
+			Expression& expr { *unary.Right };
+			auto var { std::get<Variable>(expr.Value) };
+			m_Env->Assign(var.Slot, var.Depth, *rightDoublePtr + 1);
+			m_Value = *rightDoublePtr + 1;
+		} catch (std::bad_variant_access& e) {
+			throw std::runtime_error("Can not increment non variable expression");
+		}
 		break;
 	}
 	case TokenType::MinusMinus: {
-		EnsureNumbers(unary.Operator, rightDoublePtr);
-		Expression& expr { *unary.Right };
-		auto var { std::get<Variable>(expr.Value) };
-		m_Env->Assign(var.Slot, var.Depth, *rightDoublePtr - 1);
-		m_Value = *rightDoublePtr - 1;
+		try {
+
+			EnsureNumbers(unary.Operator, rightDoublePtr);
+			Expression& expr { *unary.Right };
+			auto var { std::get<Variable>(expr.Value) };
+			m_Env->Assign(var.Slot, var.Depth, *rightDoublePtr - 1);
+			m_Value = *rightDoublePtr - 1;
+		} catch (std::bad_variant_access& e) {
+			throw std::runtime_error("Can not increment non variable expression");
+		}
 		break;
 	}
 	case TokenType::Minus:
@@ -328,8 +338,8 @@ void Interpreter::operator()(const Call& exp) {
 
 	auto fn = *fnPtr;
 
-	if (exp.Arguments.size() != fn->ParameterNames.size()) {
-		auto errorMsg { std::format("Function expects {} arguments", fn->ParameterNames.size()) };
+	if (exp.Arguments.size() > fn->ParameterNames.size()) {
+		auto errorMsg { std::format("Function expects {} arguments or less", fn->ParameterNames.size()) };
 		throw 1;
 	}
 
@@ -343,13 +353,23 @@ void Interpreter::operator()(const Call& exp) {
 	auto saved = std::move(m_Env);
 	m_Env = std::move(local);
 
-	for (const auto& stmt : *fn->Body) {
-		try {
-			Execute(*stmt);
-		} catch (const ReturnException& e) {
-			m_Value = e.GetObject();
-			break;
+	if (exp.Arguments.size() == fn->ParameterNames.size()) {
+		for (const auto& stmt : *fn->Body) {
+			try {
+				Execute(*stmt);
+			} catch (const ReturnException& e) {
+				m_Value = e.GetObject();
+				break;
+			}
 		}
+	} else {
+		std::vector missingSub(fn->ParameterNames.begin() + exp.Arguments.size(), fn->ParameterNames.end());
+		m_Value = std::make_shared<FunctionValue>(
+		    fn->Body,
+		    missingSub,
+		    std::nullopt,
+		    fn->LocalCount,
+		    m_Env);
 	}
 
 	m_Env = std::move(saved);

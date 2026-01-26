@@ -65,8 +65,13 @@ public:
 	void operator()(BreakStatement&);
 
 private:
+	struct VariableData {
+		size_t ReadCount {};
+		size_t Slot {};
+	};
+
 	struct Scope {
-		std::unordered_map<std::string, size_t> Slots;
+		std::unordered_map<std::string, VariableData> Slots;
 		size_t LocalCount = 0;
 	};
 
@@ -81,7 +86,7 @@ private:
 
 	size_t DeclareInCurrentScope(const Token& name);
 
-	void ResolveVariableUse(Token& nameToken, size_t& outSlot, size_t& outDepth);
+	void ResolveVariableUse(Token& nameToken, size_t& outSlot, size_t& outDepth, bool isRead);
 
 private:
 	std::vector<Scope> m_Scopes;

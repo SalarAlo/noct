@@ -1,5 +1,7 @@
 #include "noct/resolver/Resolver.h"
 
+#include "noct/Logger.h"
+
 namespace Noct {
 
 void Resolver::Resolve(const StatementPtrVector& statements) {
@@ -33,6 +35,14 @@ void Resolver::EndScope() {
 	if (m_Scopes.size() <= 1) {
 		throw std::runtime_error("Resolver: attempted to pop global scope");
 	}
+
+	auto& scope { m_Scopes.back() };
+	for (const auto& [name, md] : scope.Slots) {
+		if (md.ReadCount == 0) {
+			Logger::Warn("Identifier {} is unused", name);
+		}
+	}
+
 	m_Scopes.pop_back();
 }
 
@@ -42,18 +52,21 @@ size_t Resolver::DeclareInCurrentScope(const Token& name) {
 		throw std::runtime_error("Redeclared symbol in same scope: " + name.Lexeme);
 	}
 	const size_t slot = scope.LocalCount++;
-	scope.Slots[name.Lexeme] = slot;
+	scope.Slots[name.Lexeme].Slot = slot;
+	scope.Slots[name.Lexeme].ReadCount = 0;
 	return slot;
 }
 
-void Resolver::ResolveVariableUse(Token& nameToken, size_t& outSlot, size_t& outDepth) {
+void Resolver::ResolveVariableUse(Token& nameToken, size_t& outSlot, size_t& outDepth, bool isRead) {
 	const size_t innermost = m_Scopes.size() - 1;
 
 	for (size_t i = innermost;; --i) {
 		auto& scope = m_Scopes[i];
 		auto it = scope.Slots.find(nameToken.Lexeme);
 		if (it != scope.Slots.end()) {
-			outSlot = it->second;
+			outSlot = it->second.Slot;
+			if (isRead)
+				it->second.ReadCount++;
 			outDepth = innermost - i; // hops from current
 			return;
 		}
@@ -100,11 +113,11 @@ void Resolver::operator()(Call& c) {
 }
 
 void Resolver::operator()(Variable& v) {
-	ResolveVariableUse(v.Name, v.Slot, v.Depth);
+	ResolveVariableUse(v.Name, v.Slot, v.Depth, true);
 }
 
 void Resolver::operator()(Assign& a) {
-	ResolveVariableUse(a.Name, a.Slot, a.Depth);
+	ResolveVariableUse(a.Name, a.Slot, a.Depth, false);
 	Resolve(*a.Value);
 }
 
@@ -120,7 +133,7 @@ void Resolver::operator()(Lambda& lambda) {
 			throw std::runtime_error("Duplicate lambda parameter: " + param.Lexeme);
 		}
 		const size_t paramSlot = lambdaScope.LocalCount++;
-		lambdaScope.Slots[param.Lexeme] = paramSlot;
+		lambdaScope.Slots[param.Lexeme].Slot = paramSlot;
 	}
 
 	for (auto& stmt : lambda.Body) {
@@ -210,7 +223,7 @@ void Resolver::operator()(FunctionDecleration& fn) {
 			throw std::runtime_error("Duplicate function parameter: " + param.Lexeme);
 		}
 		const size_t paramSlot = fnScope.LocalCount++;
-		fnScope.Slots[param.Lexeme] = paramSlot;
+		fnScope.Slots[param.Lexeme].Slot = paramSlot;
 	}
 
 	for (auto& stmt : fn.Body) {
