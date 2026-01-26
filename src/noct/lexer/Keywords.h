@@ -22,7 +22,7 @@ inline const std::unordered_map<std::string_view, TokenType> Keywords = {
 	{ "super", TokenType::Super },
 	{ "this", TokenType::This },
 	{ "true", TokenType::True },
-	{ "make", TokenType::Make },
+	{ "var", TokenType::Var },
 	{ "while", TokenType::While },
 	{ "break", TokenType::Break },
 	{ "maybe", TokenType::Maybe },

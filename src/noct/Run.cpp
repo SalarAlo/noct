@@ -7,10 +7,13 @@
 #include "noct/Context.h"
 #include "noct/Logger.h"
 
+#include "noct/interpreter/Interpreter.h"
+
 #include "noct/lexer/Lexer.h"
 
-#include "noct/parser/Interpreter.h"
 #include "noct/parser/Parser.h"
+
+#include "noct/resolver/Resolver.h"
 
 namespace Noct {
 
@@ -40,7 +43,12 @@ namespace {
 			return;
 		}
 
+		Resolver resolver {};
+		resolver.Resolve(statements);
+
 		Interpreter interpreter { context };
+		interpreter.SetGlobalEnvironment(
+		    std::make_shared<Environment>(resolver.GetGlobalLocalCount()));
 		interpreter.Interpret(statements);
 	}
 
@@ -61,7 +69,12 @@ namespace {
 				return;
 			}
 
+			Resolver resolver {};
+			resolver.Resolve(statements);
+
 			Interpreter interpreter { context };
+			interpreter.SetGlobalEnvironment(
+			    std::make_shared<Environment>(resolver.GetGlobalLocalCount()));
 			interpreter.Interpret(statements);
 		}
 	}

@@ -4,10 +4,10 @@
 #include <string>
 #include <variant>
 
-#include "noct/parser/Interpreter.h"
+#include "noct/interpreter/Interpreter.h"
 
 #include "noct/exceptions/BreakException.h"
-#include "noct/exceptions/RetrunException.h"
+#include "noct/exceptions/ReturnException.h"
 #include "noct/exceptions/RuntimeException.h"
 
 #include "noct/lexer/NoctObject.h"
@@ -16,7 +16,6 @@
 
 #include "noct/parser/expression/Expression.h"
 #include "noct/parser/expression/FunctionValue.h"
-#include "noct/parser/expression/Lambda.h"
 #include "noct/parser/expression/LiteralBoolifier.h"
 #include "noct/parser/expression/LiteralStringifier.h"
 
@@ -33,26 +32,13 @@
 
 namespace Noct {
 
-void Interpreter::Interpret(const StatementPtrVector& statements) {
-	HoistFunctions(statements);
-
-	for (const auto& stmt : statements) {
-		Execute(*stmt);
-	}
+void Interpreter::SetGlobalEnvironment(const std::shared_ptr<Environment>& env) {
+	m_Env = env;
 }
 
-void Interpreter::HoistFunctions(const StatementPtrVector& stmts) {
-	for (const auto& stmt : stmts) {
-		if (auto fn = std::get_if<FunctionDecleration>(&stmt->Instruction)) {
-			NoctObject value {
-				std::make_shared<FunctionValue>(
-				    &fn->Body,
-				    fn->ArgumentNames,
-				    fn->Name,
-				    m_Env.get())
-			};
-			m_Env->Define(fn->Name, value, true);
-		}
+void Interpreter::Interpret(const StatementPtrVector& statements) {
+	for (const auto& stmt : statements) {
+		Execute(*stmt);
 	}
 }
 
@@ -74,17 +60,15 @@ void Interpreter::operator()(const VariableDecleration& decl) {
 	}
 
 	bool isInitialised { decl.Initialiser != nullptr };
-	m_Env->Define(decl.Name, obj, isInitialised);
+	m_Env->Define(decl.Slot, obj, isInitialised);
 }
 
 void Interpreter::operator()(const BlockStatement& blockStmt) {
 	Environment* previous = m_Env.get();
-	auto local = std::make_unique<Environment>(previous);
+	auto local = std::make_unique<Environment>(blockStmt.LocalCount, previous);
 
 	auto saved = std::move(m_Env);
 	m_Env = std::move(local);
-
-	HoistFunctions(blockStmt.Statements);
 
 	for (const auto& stmt : blockStmt.Statements)
 		Execute(*stmt);
@@ -129,8 +113,17 @@ void Interpreter::operator()(const IfStatement& ifStmt) {
 	}
 }
 
-void Interpreter::operator()(FunctionDecleration&) {
-	// intentionally empty because we already hoisted
+void Interpreter::operator()(FunctionDecleration& fn) {
+	NoctObject value {
+		std::make_shared<FunctionValue>(
+		    &fn.Body,
+		    fn.Parameters,
+		    fn.Name,
+		    fn.LocalCount,
+		    m_Env)
+	};
+
+	m_Env->Define(fn.Slot, value, true);
 }
 
 void Interpreter::operator()(const Literal& literal) {
@@ -151,7 +144,7 @@ void Interpreter::operator()(const Unary& unary) {
 		EnsureNumbers(unary.Operator, rightDoublePtr);
 		Expression& expr { *unary.Right };
 		auto var { std::get<Variable>(expr.Value) };
-		m_Env->Assign(var.Name, *rightDoublePtr + 1);
+		m_Env->Assign(var.Slot, var.Depth, *rightDoublePtr + 1);
 		m_Value = *rightDoublePtr + 1;
 		break;
 	}
@@ -159,7 +152,7 @@ void Interpreter::operator()(const Unary& unary) {
 		EnsureNumbers(unary.Operator, rightDoublePtr);
 		Expression& expr { *unary.Right };
 		auto var { std::get<Variable>(expr.Value) };
-		m_Env->Assign(var.Name, *rightDoublePtr - 1);
+		m_Env->Assign(var.Slot, var.Depth, *rightDoublePtr - 1);
 		m_Value = *rightDoublePtr - 1;
 		break;
 	}
@@ -182,12 +175,13 @@ void Interpreter::operator()(const Maybe&) {
 	m_Value = static_cast<bool>(dis(rng));
 }
 
-void Interpreter::operator()(Lambda& lam) {
+void Interpreter::operator()(const Lambda& lam) {
 	m_Value = std::make_shared<FunctionValue>(
 	    &lam.Body,
 	    lam.Parameters,
 	    std::nullopt,
-	    m_Env.get());
+	    lam.LocalCount,
+	    m_Env);
 }
 
 void Interpreter::operator()(const Binary& binary) {
@@ -300,12 +294,12 @@ void Interpreter::operator()(const Ternary& ternary) {
 }
 
 void Interpreter::operator()(const Variable& var) {
-	m_Value = m_Env->Get(var.Name);
+	m_Value = m_Env->Get(var.Slot, var.Depth);
 }
 
 void Interpreter::operator()(const Assign& exp) {
 	Evaluate(*exp.Value);
-	m_Env->Assign(exp.Name, m_Value);
+	m_Env->Assign(exp.Slot, exp.Depth, m_Value);
 }
 
 void Interpreter::operator()(const Logical& exp) {
@@ -339,12 +333,11 @@ void Interpreter::operator()(const Call& exp) {
 		throw 1;
 	}
 
-	Environment* parent = fn->Closure ? fn->Closure : m_Env.get();
-	auto local = std::make_unique<Environment>(parent);
+	auto local = std::make_shared<Environment>(fn->LocalCount, fn->Closure.get());
 
 	for (size_t i = 0; i < fn->ParameterNames.size(); i++) {
 		Evaluate(*exp.Arguments[i]);
-		local->Define(fn->ParameterNames[i], m_Value, true);
+		local->Define(i, m_Value, true);
 	}
 
 	auto saved = std::move(m_Env);
@@ -355,6 +348,7 @@ void Interpreter::operator()(const Call& exp) {
 			Execute(*stmt);
 		} catch (const ReturnException& e) {
 			m_Value = e.GetObject();
+			break;
 		}
 	}
 

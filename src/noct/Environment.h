@@ -1,29 +1,29 @@
 #pragma once
 
-#include <unordered_map>
+#include <vector>
 
 #include "noct/lexer/NoctObject.h"
-#include "noct/lexer/Token.h"
 
 namespace Noct {
 
 struct EnvironmentVariable {
-	NoctObject Value;
-	bool Initialised;
+	NoctObject Value { std::monostate {} };
+	bool Initialised { false };
 };
 
 class Environment {
 public:
-	Environment(Environment* papi = nullptr)
+	Environment(size_t size, Environment* papi = nullptr)
 	    : m_DominicanPapi(papi)
-	    , m_Values() { }
+	    , m_Values(size, EnvironmentVariable {}) {
+	}
 
-	void Define(const Token& name, NoctObject value, bool initialised);
-	void Assign(const Token& name, const NoctObject&);
-	NoctObject Get(const Token& obj);
+	void Define(size_t slot, const NoctObject& value, bool initialised);
+	void Assign(size_t slot, size_t depth, const NoctObject& val);
+	NoctObject Get(size_t slot, size_t depth) const;
 
 private:
-	std::unordered_map<std::string, EnvironmentVariable> m_Values {};
+	std::vector<EnvironmentVariable> m_Values {};
 	Environment* m_DominicanPapi {};
 };
 

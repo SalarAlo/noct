@@ -53,7 +53,7 @@ void Parser::Synchronize() {
 		switch (GetCurrent().Type) {
 		case Class:
 		case Fn:
-		case Make:
+		case Var:
 		case For:
 		case If:
 		case While:
@@ -85,7 +85,7 @@ StatementPtrVector Parser::Parse() {
 
 StatementPtr Parser::Decleration() {
 	try {
-		if (MatchCurrent(TokenType::Make))
+		if (MatchCurrent(TokenType::Var))
 			return VariableDecl();
 
 		if (Check(TokenType::Fn)) {
@@ -187,7 +187,7 @@ StatementPtr Parser::ForStmt() {
 	StatementPtr initialiser { nullptr };
 
 	if (MatchCurrent(TokenType::Semicolon)) {
-	} else if (MatchCurrent(TokenType::Make)) {
+	} else if (MatchCurrent(TokenType::Var)) {
 		initialiser = VariableDecl();
 	} else {
 		initialiser = ExpressionStmt();
@@ -272,6 +272,7 @@ StatementPtr Parser::FunctionDecl() {
 
 StatementPtr Parser::BlockStmt() {
 	StatementPtrVector statements {};
+
 	while (GetCurrent().Type != TokenType::RightBrace && !IsAtEnd()) {
 		statements.push_back(Decleration());
 	}

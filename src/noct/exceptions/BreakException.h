@@ -4,7 +4,7 @@
 
 namespace Noct {
 
-class BreakException : public std::exception {
+class BreakException {
 };
 
 }

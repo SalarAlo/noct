@@ -6,7 +6,7 @@
 
 namespace Noct {
 
-class ReturnException : public std::exception {
+class ReturnException {
 public:
 	ReturnException(const NoctObject& obj)
 	    : m_Object(obj) { };

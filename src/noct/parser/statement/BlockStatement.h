@@ -6,6 +6,7 @@ namespace Noct {
 
 struct BlockStatement {
 	StatementPtrVector Statements;
+	size_t LocalCount;
 };
 
 }

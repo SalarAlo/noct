@@ -87,10 +87,17 @@ std::string ToString(TokenType type) {
 		return "This";
 	case TokenType::True:
 		return "True";
-	case TokenType::Make:
+	case TokenType::Var:
 		return "Var";
 	case TokenType::While:
 		return "While";
+
+	case TokenType::MinusMinus:
+		return "MinusMinus";
+	case TokenType::PlusPlus:
+		return "PlusPlus";
+	case TokenType::Maybe:
+		return "Maybe";
 
 	case TokenType::Eof:
 		return "Eof";

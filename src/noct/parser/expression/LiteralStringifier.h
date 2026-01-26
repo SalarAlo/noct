@@ -29,6 +29,7 @@ struct LiteralStringifier {
 		out.append("(");
 		for (const auto& arg : f->ParameterNames) {
 			out.append(arg.Lexeme);
+			out.append(", ");
 		}
 		out.append(");");
 

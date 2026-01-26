@@ -9,6 +9,7 @@ namespace Noct {
 struct Lambda {
 	std::vector<Token> Parameters;
 	StatementPtrVector Body;
+	size_t LocalCount;
 };
 
 }

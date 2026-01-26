@@ -10,8 +10,10 @@ namespace Noct {
 
 struct FunctionDecleration {
 	Token Name;
-	std::vector<Token> ArgumentNames;
+	std::vector<Token> Parameters;
 	StatementPtrVector Body;
+	size_t Slot;
+	size_t LocalCount;
 };
 
 }

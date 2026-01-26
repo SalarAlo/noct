@@ -1,11 +1,14 @@
 #pragma once
 
+#include <cstddef>
+
 #include "noct/lexer/Token.h"
-#include "noct/lexer/TokenType.h"
 
 namespace Noct {
 struct Variable {
-	Token Name { TokenType::Nil, "", 0 };
+	Token Name;
+	size_t Slot {};
+	size_t Depth {};
 };
 
 }

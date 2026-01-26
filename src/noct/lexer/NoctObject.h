@@ -1,11 +1,12 @@
 #pragma once
 
+#include <memory>
 #include <string>
 #include <variant>
 
-#include "noct/parser/expression/FunctionValue.h"
-
 namespace Noct {
+struct FunctionValue;
+using FunctionRef = std::shared_ptr<FunctionValue>;
 
 using NoctObject = std::variant<
     std::monostate,

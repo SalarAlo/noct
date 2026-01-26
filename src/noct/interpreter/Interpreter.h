@@ -9,7 +9,6 @@
 
 #include "noct/parser/expression/Expression.h"
 #include "noct/parser/expression/ExpressionFwd.h"
-#include "noct/parser/expression/Lambda.h"
 
 #include "noct/parser/statement/FunctionDecleration.h"
 #include "noct/parser/statement/ReturnStatement.h"
@@ -33,7 +32,7 @@ public:
 	void operator()(const Logical&);
 	void operator()(const Call&);
 	void operator()(const Maybe&);
-	void operator()(Lambda&);
+	void operator()(const Lambda&);
 
 	void operator()(const ExpressionStatement&);
 	void operator()(const PrintStatement&);
@@ -45,8 +44,8 @@ public:
 	void operator()(const ReturnStatement&);
 	void operator()(const BreakStatement&);
 
+	void SetGlobalEnvironment(const std::shared_ptr<Environment>& env);
 	void Interpret(const StatementPtrVector& statements);
-	void HoistFunctions(const StatementPtrVector& statements);
 
 	bool IsEqual(const NoctObject& left, const NoctObject& right);
 
@@ -61,7 +60,7 @@ public:
 private:
 	Context& m_Context;
 	NoctObject m_Value {};
-	std::unique_ptr<Environment> m_Env { std::make_unique<Environment>() };
+	std::shared_ptr<Environment> m_Env { nullptr };
 };
 
 }

@@ -6,10 +6,12 @@
 
 namespace Noct {
 
-struct VariableDecleration {
+struct Assign {
 	Token Name;
-	ExpressionPtr Initialiser;
+	ExpressionPtr Value;
+
 	size_t Slot;
+	size_t Depth;
 };
 
 }
