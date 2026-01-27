@@ -32,7 +32,7 @@ struct LiteralNumifier {
 		return 0;
 	}
 
-	double operator()(const FunctionRef& f) const {
+	double operator()(const FunctionValueRef& f) const {
 		return f->ParameterNames.size();
 	}
 };

@@ -1,9 +1,12 @@
 #pragma once
 
 #include <cstddef>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
+
+#include "noct/Context.h"
 
 #include "noct/lexer/Token.h"
 
@@ -24,6 +27,7 @@
 
 #include "noct/parser/statement/BlockStatement.h"
 #include "noct/parser/statement/BreakStatement.h"
+#include "noct/parser/statement/ClassDecleration.h"
 #include "noct/parser/statement/ExpressionStatement.h"
 #include "noct/parser/statement/FunctionDecleration.h"
 #include "noct/parser/statement/IfStatement.h"
@@ -38,6 +42,7 @@ namespace Noct {
 
 class Resolver final {
 public:
+	Resolver(Context& ctx);
 	void Resolve(const StatementPtrVector& statements);
 
 	size_t GetGlobalLocalCount() const { return m_GlobalLocalCount; }
@@ -58,6 +63,7 @@ public:
 	void operator()(PrintStatement&);
 	void operator()(VariableDecleration&);
 	void operator()(FunctionDecleration&);
+	void operator()(ClassDecleration&);
 	void operator()(BlockStatement&);
 	void operator()(IfStatement&);
 	void operator()(WhileStatement&);
@@ -65,14 +71,23 @@ public:
 	void operator()(BreakStatement&);
 
 private:
-	struct VariableData {
+	enum class SymbolKind {
+		Variable,
+		Function,
+		Class,
+		Parameter
+	};
+
+	struct SlotMeta {
 		size_t ReadCount {};
 		size_t Slot {};
+		bool Defined {};
+		SymbolKind Kind {};
 	};
 
 	struct Scope {
-		std::unordered_map<std::string, VariableData> Slots;
-		size_t LocalCount = 0;
+		std::unordered_map<std::string, SlotMeta> Slots;
+		size_t LocalCount {};
 	};
 
 private:
@@ -84,17 +99,19 @@ private:
 	void BeginScope();
 	void EndScope();
 
-	size_t DeclareInCurrentScope(const Token& name);
+	std::optional<size_t> TryDeclareInCurrentScope(const Token& name, SymbolKind kind);
 
-	void ResolveVariableUse(Token& nameToken, size_t& outSlot, size_t& outDepth, bool isRead);
+	bool TryResolveVariableUse(Token& nameToken, size_t& outSlot, size_t& outDepth, bool isRead);
 
 private:
+	Context& m_Context;
 	std::vector<Scope> m_Scopes;
 
-	bool m_InFunction = false;
-	bool m_InLoop = false;
+	bool m_InFunction {};
+	bool m_InClass {};
+	bool m_InLoop {};
 
-	size_t m_GlobalLocalCount = 0;
+	size_t m_GlobalLocalCount {};
 };
 
 }

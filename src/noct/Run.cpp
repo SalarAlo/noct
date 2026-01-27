@@ -6,6 +6,7 @@
 
 #include "noct/Context.h"
 #include "noct/Logger.h"
+#include "noct/RunResult.h"
 
 #include "noct/interpreter/Interpreter.h"
 
@@ -18,13 +19,12 @@
 namespace Noct {
 
 namespace {
-	void RunFile(const std::filesystem::path& path, Context& context) {
+	int RunFile(const std::filesystem::path& path, Context& context) {
 		std::ifstream f { path };
 
 		if (!f.is_open()) {
 			Logger::Error("Unable to open {} ", path.c_str());
-			context.HadError = true;
-			return;
+			return 1;
 		}
 
 		std::string line {};
@@ -33,51 +33,49 @@ namespace {
 		while (std::getline(f, line))
 			contents.append(line).append("\n");
 
-		Lexer lexer { contents, context };
-		Parser parser { lexer.ScanTokens(), context };
+		RunResult result { RunFromString(context, contents) };
 
-		auto statements = parser.Parse();
-
-		if (!statements.size()) {
-			Logger::Info("No statements");
-			return;
-		}
-
-		Resolver resolver {};
-		resolver.Resolve(statements);
-
-		Interpreter interpreter { context };
-		interpreter.SetGlobalEnvironment(
-		    std::make_shared<Environment>(resolver.GetGlobalLocalCount()));
-		interpreter.Interpret(statements);
+		return result.HadParseError || result.HadSemanticError || result.HadRuntimeError;
 	}
 
-	static void RunPrompt(Context& context) {
-		Logger::Info("Entering interactive mode");
-		while (!context.HadError) {
-			std::string inp;
-			std::cout << ">> ";
-			std::cin >> inp;
+}
 
-			Lexer lexer { inp, context };
-			Parser parser { lexer.ScanTokens(), context };
+RunResult RunFromString(Context& context, std::string_view contents) {
+	Logger::detail::SetEnabled(context.LoggingEnabled);
+	Lexer lexer { contents, context };
+	Parser parser { lexer.ScanTokens(), context };
+	RunResult result {};
 
-			auto statements = parser.Parse();
+	auto statements = parser.Parse();
 
-			if (!statements.size()) {
-				Logger::Info("No statements");
-				return;
-			}
-
-			Resolver resolver {};
-			resolver.Resolve(statements);
-
-			Interpreter interpreter { context };
-			interpreter.SetGlobalEnvironment(
-			    std::make_shared<Environment>(resolver.GetGlobalLocalCount()));
-			interpreter.Interpret(statements);
-		}
+	if (context.HadParseError) {
+		result.HadParseError = true;
+		return result;
 	}
+
+	if (!statements.size()) {
+		return result;
+	}
+
+	Resolver resolver { context };
+	resolver.Resolve(statements);
+
+	if (context.HadSemanticError) {
+		result.HadSemanticError = true;
+		return result;
+	}
+
+	Interpreter interpreter { context };
+	interpreter.SetGlobalEnvironment(std::make_shared<Environment>(resolver.GetGlobalLocalCount()));
+	interpreter.Interpret(statements);
+
+	if (context.HadRuntimeError) {
+		result.HadRuntimeError = true;
+		return result;
+	}
+	result.Value = interpreter.GetLiteral();
+
+	return result;
 }
 
 int Run(int argc, char** argv) {
@@ -85,23 +83,16 @@ int Run(int argc, char** argv) {
 		.Args = { argv, static_cast<std::size_t>(argc) }
 	};
 
-	Logger::Info("Context initialized");
-
 	switch (argc) {
-	case 1:
-		RunPrompt(ctx);
-		break;
 	case 2: {
 		auto path { std::filesystem::path(ctx.Args[1]) };
-		RunFile(path, ctx);
+		return RunFile(path, ctx);
 		break;
 	}
 	default:
 		Logger::Error("Usage: {} [script_path]", ctx.Args[0]);
 		return 1;
 	}
-
-	return ctx.HadError ? 1 : 0;
 }
 
 }

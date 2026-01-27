@@ -21,7 +21,7 @@ struct FunctionValue {
 	~FunctionValue();
 };
 
-using FunctionRef = std::shared_ptr<FunctionValue>;
+using FunctionValueRef = std::shared_ptr<FunctionValue>;
 
 inline bool operator==(const FunctionValue& a, const FunctionValue& b) {
 	return a.Body == b.Body

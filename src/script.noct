@@ -1,5 +1,7 @@
-fn x(a, b) {
-	return a + b;
+class serveOn {
+    fn some_name() { 
+    	return "Scones";
+    }
 }
 
-print x(8)(9);
+print serveOn;

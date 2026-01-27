@@ -9,12 +9,18 @@
 namespace Noct::Logger {
 
 namespace detail {
+	inline static bool s_Enabled;
+
+	inline void SetEnabled(bool enabled) {
+		s_Enabled = enabled;
+	}
 
 	inline void write(std::string_view level, std::string_view message, bool error) {
+		if (!s_Enabled)
+			return;
 		auto& out = error ? std::cerr : std::cout;
 		out << "[" << level << "] " << message << '\n';
 	}
-
 }
 
 template <typename... Args>

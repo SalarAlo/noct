@@ -13,7 +13,7 @@ struct EnvironmentVariable {
 
 class Environment {
 public:
-	Environment(size_t size, Environment* papi = nullptr)
+	Environment(size_t size, std::shared_ptr<Environment> papi = nullptr)
 	    : m_DominicanPapi(papi)
 	    , m_Values(size, EnvironmentVariable {}) {
 	}
@@ -24,7 +24,7 @@ public:
 
 private:
 	std::vector<EnvironmentVariable> m_Values {};
-	Environment* m_DominicanPapi {};
+	std::shared_ptr<Environment> m_DominicanPapi {};
 };
 
 }

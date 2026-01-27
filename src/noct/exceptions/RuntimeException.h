@@ -1,27 +1,25 @@
 #pragma once
 
-#include <exception>
+#include <stdexcept>
 #include <string>
 
 #include "noct/lexer/Token.h"
 
 namespace Noct {
 
-class RuntimeError : public std::exception {
+class RuntimeError : public std::runtime_error {
 public:
-	explicit RuntimeError(const Token& token, std::string_view msg)
-	    : m_Message(msg)
-	    , m_Token(token) {
-	}
+	RuntimeError(std::string msg)
+	    : std::runtime_error(std::move(msg))
+	    , m_Token(TokenType::Eof, "", 0) { }
 
-	const char* what() const noexcept override {
-		return m_Message.c_str();
-	}
+	RuntimeError(const Token& where, std::string msg)
+	    : std::runtime_error(std::move(msg))
+	    , m_Token(where) { }
 
-	Token GetToken() const { return m_Token; }
+	const Token& Where() const { return m_Token; }
 
 private:
-	std::string m_Message;
 	Token m_Token;
 };
 

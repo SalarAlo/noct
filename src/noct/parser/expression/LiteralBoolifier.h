@@ -3,6 +3,8 @@
 #include <string>
 #include <variant>
 
+#include "noct/parser/expression/ClassInstance.h"
+#include "noct/parser/expression/ClassValue.h"
 #include "noct/parser/expression/FunctionValue.h"
 
 namespace Noct {
@@ -23,7 +25,15 @@ struct LiteralBoolifier {
 		return false;
 	}
 
-	bool operator()(const FunctionRef&) const {
+	bool operator()(const FunctionValueRef&) const {
+		return true;
+	}
+
+	bool operator()(const ClassValueRef&) const {
+		return true;
+	}
+
+	bool operator()(const ClassInstance&) const {
 		return true;
 	}
 };

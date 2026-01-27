@@ -1,8 +1,8 @@
 #include <fmt/format.h>
 
-#include <stdexcept>
-
 #include "noct/Environment.h"
+
+#include "noct/exceptions/RuntimeException.h"
 
 namespace Noct {
 
@@ -13,13 +13,13 @@ void Environment::Define(size_t slot, const NoctObject& value, bool initialised)
 
 void Environment::Assign(size_t slot, size_t depth, const NoctObject& val) {
 	if (!depth) {
-		if (!m_Values[slot].Initialised) {
-			throw std::runtime_error("uninitialised variable");
-		}
-
 		m_Values[slot].Value = val;
+		m_Values[slot].Initialised = true;
 		return;
 	}
+
+	if (!m_DominicanPapi)
+		throw RuntimeError("invalid scope chain");
 
 	m_DominicanPapi->Assign(slot, depth - 1, val);
 }
@@ -27,7 +27,7 @@ void Environment::Assign(size_t slot, size_t depth, const NoctObject& val) {
 NoctObject Environment::Get(size_t slot, size_t depth) const {
 	if (!depth) {
 		if (!m_Values[slot].Initialised) {
-			throw std::runtime_error("uninitialised variable");
+			throw RuntimeError("uninitialised variable");
 		}
 
 		return m_Values[slot].Value;

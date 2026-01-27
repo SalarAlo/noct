@@ -35,6 +35,7 @@ private:
 	StatementPtr ReturnStmt();
 	StatementPtr VariableDecl();
 	StatementPtr FunctionDecl();
+	StatementPtr ClassDecl();
 
 	ExpressionPtr Expr();
 	ExpressionPtr Assignment();

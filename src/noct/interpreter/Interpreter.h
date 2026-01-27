@@ -10,6 +10,7 @@
 #include "noct/parser/expression/Expression.h"
 #include "noct/parser/expression/ExpressionFwd.h"
 
+#include "noct/parser/statement/ClassDecleration.h"
 #include "noct/parser/statement/FunctionDecleration.h"
 #include "noct/parser/statement/ReturnStatement.h"
 #include "noct/parser/statement/Statement.h"
@@ -37,6 +38,7 @@ public:
 	void operator()(const ExpressionStatement&);
 	void operator()(const PrintStatement&);
 	void operator()(const VariableDecleration&);
+	void operator()(const ClassDecleration&);
 	void operator()(FunctionDecleration&);
 	void operator()(const BlockStatement&);
 	void operator()(const IfStatement&);

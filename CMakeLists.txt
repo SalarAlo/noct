@@ -7,19 +7,31 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-file(GLOB_RECURSE NOCT_SOURCES
-     CONFIGURE_DEPENDS
-     src/*.cpp
-)
+file(GLOB_RECURSE NOCT_LIB_SOURCES CONFIGURE_DEPENDS src/noct/*.cpp)
 
 find_package(fmt REQUIRED)
 
+add_library(NoctLib ${NOCT_LIB_SOURCES})
+target_include_directories(NoctLib PUBLIC src)
+target_link_libraries(NoctLib PUBLIC fmt::fmt)
 
-add_executable(Noct ${NOCT_SOURCES})
+add_executable(Noct src/Main.cpp)
+target_link_libraries(Noct PRIVATE NoctLib)
 
-target_include_directories(Noct
-    PRIVATE
-        ${CMAKE_SOURCE_DIR}/src
+# ---------- tests ----------
+add_executable(NoctTests 
+	tests/SyntaxErrors.cpp
+	tests/SemanticErrors.cpp
+	tests/RuntimeErrors.cpp
+	tests/ValidPrograms.cpp
+	tests/Arithmetic.cpp
+	tests/Closures.cpp
+	tests/Functions.cpp
+	tests/LogicAndControlFlow.cpp
+	tests/VariablesAndScope.cpp
 )
+target_include_directories(NoctTests PRIVATE vendor)
+target_link_libraries(NoctTests PRIVATE NoctLib)
 
-target_link_libraries(Noct PRIVATE fmt::fmt)
+enable_testing()
+add_test(NAME NoctTests COMMAND NoctTests)

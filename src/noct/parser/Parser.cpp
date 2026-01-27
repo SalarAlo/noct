@@ -19,6 +19,7 @@
 #include "noct/parser/expression/MakeExpression.h"
 
 #include "noct/parser/statement/BlockStatement.h"
+#include "noct/parser/statement/ClassDecleration.h"
 #include "noct/parser/statement/FunctionDecleration.h"
 #include "noct/parser/statement/MakeStatement.h"
 #include "noct/parser/statement/StatementFwd.h"
@@ -78,7 +79,7 @@ StatementPtrVector Parser::Parse() {
 
 		return statements;
 	} catch (const RuntimeError& e) {
-		m_Context.RegisterTokenError(e.GetToken(), e.what());
+		m_Context.ReportParseError(e.Where(), e.what());
 		return {};
 	}
 }
@@ -95,9 +96,13 @@ StatementPtr Parser::Decleration() {
 				return ExpressionStmt();
 		}
 
+		if (MatchCurrent(TokenType::Class)) {
+			return ClassDecl();
+		}
+
 		return Stmt();
 	} catch (const RuntimeError& e) {
-		m_Context.RegisterTokenError(e.GetToken(), e.what());
+		m_Context.ReportParseError(e.Where(), e.what());
 		Synchronize();
 		return nullptr;
 	}
@@ -134,13 +139,14 @@ StatementPtr Parser::Stmt() {
 }
 
 StatementPtr Parser::ReturnStmt() {
+	auto retToken { GetPrevious() };
 	if (MatchCurrent(TokenType::Semicolon)) {
-		return make_statement<ReturnStatement>(nullptr);
+		return make_statement<ReturnStatement>(retToken, nullptr);
 	}
 
 	auto value { Expr() };
 	Consume(TokenType::Semicolon, "';' after return statemenet exprected");
-	return make_statement<ReturnStatement>(std::move(value));
+	return make_statement<ReturnStatement>(retToken, std::move(value));
 }
 
 StatementPtr Parser::PrintStmt() {
@@ -176,8 +182,9 @@ StatementPtr Parser::WhileStmt() {
 }
 
 StatementPtr Parser::BreakStmt() {
+	auto b { GetPrevious() };
 	Consume(TokenType::Semicolon, "Exptected a ';' after a break statement");
-	return make_statement<BreakStatement>();
+	return make_statement<BreakStatement>(b);
 }
 
 StatementPtr Parser::ForStmt() {
@@ -234,7 +241,7 @@ StatementPtr Parser::ForStmt() {
 
 StatementPtr Parser::ExpressionStmt() {
 	auto value { Expr() };
-	Consume(TokenType::Semicolon, "expected ';' after print statemenet");
+	Consume(TokenType::Semicolon, "expected ';' after expression statemenet");
 	return make_statement<ExpressionStatement>(std::move(value));
 }
 
@@ -257,7 +264,8 @@ StatementPtr Parser::FunctionDecl() {
 		return nullptr;
 	}
 
-	Advance();
+	Consume(TokenType::Fn, "Expected function to start with fn keyword.");
+
 	Token name = Consume(TokenType::Identifier, "Expected variable name.");
 
 	Consume(TokenType::LeftParen, "Expected '(' after function name.");
@@ -266,8 +274,29 @@ StatementPtr Parser::FunctionDecl() {
 	Consume(TokenType::LeftBrace, "Expected '{' after function decleration list.");
 
 	BlockStatement body { std::get<BlockStatement>(std::move(BlockStmt()->Instruction)) };
+	MatchCurrent(TokenType::Semicolon);
 
 	return make_statement<FunctionDecleration>(name, args, std::move(body.Statements));
+}
+
+StatementPtr Parser::ClassDecl() {
+	Token name { Consume(TokenType::Identifier, "Expected class name.") };
+
+	std::vector<FunctionDecleration> methods {};
+
+	Consume(TokenType::LeftBrace, "Expected '{' after class name.");
+
+	while (Check(TokenType::Fn)) {
+		if (auto fnDecl { FunctionDecl() }; fnDecl) {
+			methods.push_back(std::move(std::get<FunctionDecleration>(fnDecl->Instruction)));
+			continue;
+		}
+		throw RuntimeError(GetCurrent(), "Method Decleration failed");
+	}
+
+	Consume(TokenType::RightBrace, "Expected '}' after class definition.");
+
+	return make_statement<ClassDecleration>(name, std::move(methods));
 }
 
 StatementPtr Parser::BlockStmt() {
@@ -408,9 +437,10 @@ ExpressionPtr Parser::Call() {
 	auto expr { IncDec() };
 
 	while (MatchCurrent(LeftParen)) {
+		auto paren { GetPrevious() };
 		auto args = GetArguments();
 		Consume(RightParen, "Expected ')' after arguments.");
-		expr = std::move(make_expression<Noct::Call>(std::move(expr), std::move(args)));
+		expr = std::move(make_expression<Noct::Call>(std::move(expr), std::move(args), paren));
 	}
 
 	return expr;
@@ -467,7 +497,7 @@ ExpressionPtr Parser::Primary() {
 		std::string errorMsg { "Missing left hand operand before binary operator " };
 		errorMsg.append(ToString(falsyOperator.Type));
 
-		m_Context.RegisterSourceCodeError(falsyOperator.Line, errorMsg);
+		m_Context.ReportParseError(falsyOperator.Line, errorMsg);
 		return RecoverRhs(falsyOperator.Type);
 	}
 

@@ -109,7 +109,7 @@ void Lexer::ScanToken() {
 		} else if (IsAlpha(currentCharacter)) {
 			HandleIdentifier();
 		} else {
-			m_Context.RegisterSourceCodeError(m_Line, fmt::format("Unexpected character: '{}'", currentCharacter));
+			m_Context.ReportParseError(m_Line, fmt::format("Unexpected character: '{}'", currentCharacter));
 		}
 		break;
 	}
@@ -146,7 +146,7 @@ void Lexer::HandleString() {
 	}
 
 	if (IsAtEnd()) {
-		m_Context.RegisterSourceCodeError(m_Line, "Unterminated String");
+		m_Context.ReportParseError(m_Line, "Unterminated string");
 	}
 
 	Advance();
@@ -158,12 +158,12 @@ void Lexer::HandleString() {
 void Lexer::HandleNumber() {
 	while (IsDigit(Peek()))
 		Advance();
+
 	if (Peek() == '.' && IsDigit(PeekNext())) {
 		Advance();
 		while (IsDigit(Peek()))
 			Advance();
 	}
-	double value {};
 
 	AddToken(TokenType::Number);
 }
@@ -193,7 +193,7 @@ void Lexer::HandleMultiLineComment() {
 	}
 
 	if (IsAtEnd()) {
-		m_Context.RegisterSourceCodeError(m_Line, "Unterminated multi-line comment");
+		m_Context.ReportParseError(m_Line, "Unterminated multi-line comment");
 		return;
 	}
 

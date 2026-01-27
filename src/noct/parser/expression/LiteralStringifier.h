@@ -4,6 +4,8 @@
 #include <string>
 #include <variant>
 
+#include "noct/parser/expression/ClassInstance.h"
+#include "noct/parser/expression/ClassValue.h"
 #include "noct/parser/expression/FunctionValue.h"
 
 namespace Noct {
@@ -23,7 +25,7 @@ struct LiteralStringifier {
 		return "nil";
 	}
 
-	std::string operator()(const FunctionRef& f) const {
+	std::string operator()(const FunctionValueRef& f) const {
 		std::string out {};
 		out.append(f->Name.has_value() ? f->Name->Lexeme : "<ananoymous_function>");
 		out.append("(");
@@ -35,5 +37,18 @@ struct LiteralStringifier {
 
 		return out;
 	}
+
+	std::string operator()(const ClassValueRef& c) const {
+		std::string out {};
+		out.append("class ").append(c->Name);
+		return out;
+	}
+
+	std::string operator()(const ClassInstance& c) const {
+		std::string out {};
+		out.append("instance of class ").append(c.ClassReference->Name);
+		return out;
+	}
 };
+
 }

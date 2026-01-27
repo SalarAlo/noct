@@ -1,7 +1,8 @@
+#include <fmt/format.h>
+
 #include <iostream>
 #include <memory>
 #include <random>
-#include <stdexcept>
 #include <string>
 #include <variant>
 
@@ -22,6 +23,7 @@
 
 #include "noct/parser/statement/BlockStatement.h"
 #include "noct/parser/statement/BreakStatement.h"
+#include "noct/parser/statement/ClassDecleration.h"
 #include "noct/parser/statement/ExpressionStatement.h"
 #include "noct/parser/statement/FunctionDecleration.h"
 #include "noct/parser/statement/IfStatement.h"
@@ -38,8 +40,11 @@ void Interpreter::SetGlobalEnvironment(const std::shared_ptr<Environment>& env) 
 }
 
 void Interpreter::Interpret(const StatementPtrVector& statements) {
-	for (const auto& stmt : statements) {
-		Execute(*stmt);
+	try {
+		for (const auto& stmt : statements)
+			Execute(*stmt);
+	} catch (const RuntimeError& e) {
+		m_Context.ReportRuntimeError(e);
 	}
 }
 
@@ -64,17 +69,24 @@ void Interpreter::operator()(const VariableDecleration& decl) {
 	m_Env->Define(decl.Slot, obj, isInitialised);
 }
 
-void Interpreter::operator()(const BlockStatement& blockStmt) {
-	Environment* previous = m_Env.get();
-	auto local = std::make_unique<Environment>(blockStmt.LocalCount, previous);
+void Interpreter::operator()(const ClassDecleration& classDecl) {
+	ClassValueRef classValueRef { std::make_shared<ClassValue>(classDecl.Name.Lexeme) };
+	NoctObject obj { classValueRef };
 
-	auto saved = std::move(m_Env);
-	m_Env = std::move(local);
+	m_Env->Define(classDecl.Slot, obj, true);
+}
+
+void Interpreter::operator()(const BlockStatement& blockStmt) {
+	auto previous = m_Env;
+	auto local = std::make_shared<Environment>(blockStmt.LocalCount, previous);
+
+	auto saved = m_Env;
+	m_Env = local;
 
 	for (const auto& stmt : blockStmt.Statements)
 		Execute(*stmt);
 
-	m_Env = std::move(saved);
+	m_Env = saved;
 }
 
 void Interpreter::operator()(const BreakStatement&) {
@@ -149,7 +161,7 @@ void Interpreter::operator()(const Unary& unary) {
 			m_Env->Assign(var.Slot, var.Depth, *rightDoublePtr + 1);
 			m_Value = *rightDoublePtr + 1;
 		} catch (std::bad_variant_access& e) {
-			throw std::runtime_error("Can not increment non variable expression");
+			throw RuntimeError(unary.Operator, "Can not increment non variable expression");
 		}
 		break;
 	}
@@ -162,7 +174,7 @@ void Interpreter::operator()(const Unary& unary) {
 			m_Env->Assign(var.Slot, var.Depth, *rightDoublePtr - 1);
 			m_Value = *rightDoublePtr - 1;
 		} catch (std::bad_variant_access& e) {
-			throw std::runtime_error("Can not increment non variable expression");
+			throw RuntimeError(unary.Operator, "Can not decrement non variable expression");
 		}
 		break;
 	}
@@ -238,7 +250,7 @@ void Interpreter::operator()(const Binary& binary) {
 	case TokenType::Slash:
 		EnsureNumbers(binary.Operator, rightDoublePtr, leftDoublePtr);
 		if (*rightDoublePtr == 0) {
-			throw RuntimeError(binary.Operator, "Right hand side of division operator is 0. Can not divide by 0");
+			throw RuntimeError(binary.Operator, "Can not divide by 0");
 		}
 		m_Value = *leftDoublePtr / *rightDoublePtr;
 		break;
@@ -331,48 +343,41 @@ void Interpreter::operator()(const Logical& exp) {
 void Interpreter::operator()(const Call& exp) {
 	Evaluate(*exp.Callee);
 
-	auto fnPtr = std::get_if<FunctionRef>(&m_Value);
+	auto fnPtr = std::get_if<FunctionValueRef>(&m_Value);
 	if (!fnPtr || !(*fnPtr)) {
-		throw "Can only call functions.";
+		throw RuntimeError(exp.Paren, "Can only call functions.");
 	}
 
 	auto fn = *fnPtr;
 
-	if (exp.Arguments.size() > fn->ParameterNames.size()) {
-		auto errorMsg { std::format("Function expects {} arguments or less", fn->ParameterNames.size()) };
-		throw 1;
+	auto callArgumentsAmount { exp.Arguments.size() };
+	auto expectedFnParametersAmount { fn->ParameterNames.size() };
+
+	if (callArgumentsAmount != expectedFnParametersAmount) {
+		auto errorMsg { fmt::format("Function expects {} arguments but received {}", expectedFnParametersAmount, callArgumentsAmount) };
+		throw RuntimeError(exp.Paren, errorMsg);
 	}
 
-	auto local = std::make_shared<Environment>(fn->LocalCount, fn->Closure.get());
+	auto local = std::make_shared<Environment>(fn->LocalCount, fn->Closure);
 
-	for (size_t i = 0; i < fn->ParameterNames.size(); i++) {
+	for (size_t i = 0; i < expectedFnParametersAmount; i++) {
 		Evaluate(*exp.Arguments[i]);
 		local->Define(i, m_Value, true);
 	}
 
-	auto saved = std::move(m_Env);
-	m_Env = std::move(local);
+	auto saved = m_Env;
+	m_Env = local;
 
-	if (exp.Arguments.size() == fn->ParameterNames.size()) {
-		for (const auto& stmt : *fn->Body) {
-			try {
-				Execute(*stmt);
-			} catch (const ReturnException& e) {
-				m_Value = e.GetObject();
-				break;
-			}
+	for (const auto& stmt : *fn->Body) {
+		try {
+			Execute(*stmt);
+		} catch (const ReturnException& e) {
+			m_Value = e.GetObject();
+			break;
 		}
-	} else {
-		std::vector missingSub(fn->ParameterNames.begin() + exp.Arguments.size(), fn->ParameterNames.end());
-		m_Value = std::make_shared<FunctionValue>(
-		    fn->Body,
-		    missingSub,
-		    std::nullopt,
-		    fn->LocalCount,
-		    m_Env);
 	}
 
-	m_Env = std::move(saved);
+	m_Env = saved;
 }
 
 void Interpreter::Evaluate(Expression& exp) {
@@ -405,5 +410,4 @@ bool Interpreter::IsEqual(const NoctObject& left, const NoctObject& right) {
 	},
 	    left);
 }
-
 }

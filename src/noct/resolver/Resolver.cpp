@@ -1,18 +1,25 @@
 #include "noct/resolver/Resolver.h"
 
+#include "noct/Context.h"
 #include "noct/Logger.h"
+
+#include "noct/parser/statement/ClassDecleration.h"
 
 namespace Noct {
 
+Resolver::Resolver(Context& ctx)
+    : m_Context(ctx) { }
+
 void Resolver::Resolve(const StatementPtrVector& statements) {
 	m_Scopes.clear();
-	m_Scopes.push_back({});
+	BeginScope();
 
 	for (const auto& stmt : statements) {
 		Resolve(*stmt);
 	}
 
-	m_GlobalLocalCount = m_Scopes.front().LocalCount;
+	m_GlobalLocalCount = GetCurrentScope().LocalCount;
+	EndScope();
 }
 
 auto Resolver::GetCurrentScope() -> Scope& {
@@ -32,49 +39,78 @@ void Resolver::BeginScope() {
 }
 
 void Resolver::EndScope() {
-	if (m_Scopes.size() <= 1) {
-		throw std::runtime_error("Resolver: attempted to pop global scope");
-	}
-
 	auto& scope { m_Scopes.back() };
+
 	for (const auto& [name, md] : scope.Slots) {
-		if (md.ReadCount == 0) {
-			Logger::Warn("Identifier {} is unused", name);
+		switch (md.Kind) {
+		case SymbolKind::Parameter:
+			[[fallthrough]];
+		case SymbolKind::Variable:
+			if (md.ReadCount == 0)
+				Logger::Warn("Identifier {} is unused", name);
+			break;
+
+		case SymbolKind::Function:
+			if (md.ReadCount == 0)
+				Logger::Warn("Function {} is unused", name);
+			break;
+
+		case SymbolKind::Class:
+			if (md.ReadCount == 0)
+				Logger::Warn("Class {} is unused", name);
+			break;
 		}
 	}
 
 	m_Scopes.pop_back();
 }
 
-size_t Resolver::DeclareInCurrentScope(const Token& name) {
+std::optional<size_t> Resolver::TryDeclareInCurrentScope(const Token& name, SymbolKind kind) {
 	auto& scope = GetCurrentScope();
+
 	if (scope.Slots.contains(name.Lexeme)) {
-		throw std::runtime_error("Redeclared symbol in same scope: " + name.Lexeme);
+		m_Context.ReportResolveError(name, "Redeclared symbol in same scope");
+		return {};
 	}
+
 	const size_t slot = scope.LocalCount++;
 	scope.Slots[name.Lexeme].Slot = slot;
 	scope.Slots[name.Lexeme].ReadCount = 0;
+	scope.Slots[name.Lexeme].Defined = false;
+	scope.Slots[name.Lexeme].Kind = kind;
 	return slot;
 }
 
-void Resolver::ResolveVariableUse(Token& nameToken, size_t& outSlot, size_t& outDepth, bool isRead) {
+bool Resolver::TryResolveVariableUse(Token& nameToken, size_t& outSlot, size_t& outDepth, bool isRead) {
 	const size_t innermost = m_Scopes.size() - 1;
 
 	for (size_t i = innermost;; --i) {
 		auto& scope = m_Scopes[i];
 		auto it = scope.Slots.find(nameToken.Lexeme);
 		if (it != scope.Slots.end()) {
+			if (!it->second.Defined && i == innermost) {
+				m_Context.ReportResolveError(nameToken, "Variable used in its own initializer");
+				outSlot = 0;
+				outDepth = 0;
+				return false;
+			}
+
 			outSlot = it->second.Slot;
 			if (isRead)
 				it->second.ReadCount++;
-			outDepth = innermost - i; // hops from current
-			return;
+			outDepth = innermost - i;
+			return true;
 		}
 		if (i == 0)
 			break;
 	}
 
-	throw std::runtime_error("Undefined variable access: " + nameToken.Lexeme);
+	m_Context.ReportResolveError(nameToken, "Undefined variable access");
+
+	outSlot = 0;
+	outDepth = 0;
+
+	return false;
 }
 
 void Resolver::operator()(Literal&) { }
@@ -113,11 +149,11 @@ void Resolver::operator()(Call& c) {
 }
 
 void Resolver::operator()(Variable& v) {
-	ResolveVariableUse(v.Name, v.Slot, v.Depth, true);
+	TryResolveVariableUse(v.Name, v.Slot, v.Depth, true);
 }
 
 void Resolver::operator()(Assign& a) {
-	ResolveVariableUse(a.Name, a.Slot, a.Depth, false);
+	TryResolveVariableUse(a.Name, a.Slot, a.Depth, false);
 	Resolve(*a.Value);
 }
 
@@ -130,10 +166,17 @@ void Resolver::operator()(Lambda& lambda) {
 
 	for (const auto& param : lambda.Parameters) {
 		if (lambdaScope.Slots.contains(param.Lexeme)) {
-			throw std::runtime_error("Duplicate lambda parameter: " + param.Lexeme);
+			m_Context.ReportResolveError(param, "Duplicate lambda parameter");
+			continue;
 		}
+
 		const size_t paramSlot = lambdaScope.LocalCount++;
-		lambdaScope.Slots[param.Lexeme].Slot = paramSlot;
+
+		auto& meta = lambdaScope.Slots[param.Lexeme];
+		meta.Slot = paramSlot;
+		meta.ReadCount = 0;
+		meta.Defined = true;
+		meta.Kind = SymbolKind::Parameter;
 	}
 
 	for (auto& stmt : lambda.Body) {
@@ -155,12 +198,19 @@ void Resolver::operator()(PrintStatement& s) {
 }
 
 void Resolver::operator()(VariableDecleration& d) {
-	const size_t slot = DeclareInCurrentScope(d.Name);
-	d.Slot = slot;
+	const auto slot = TryDeclareInCurrentScope(d.Name, SymbolKind::Variable);
 
+	if (!slot) {
+		return;
+	}
+
+	d.Slot = *slot;
+
+	auto& meta = GetCurrentScope().Slots[d.Name.Lexeme];
 	if (d.Initialiser) {
 		Resolve(*d.Initialiser);
 	}
+	meta.Defined = true;
 }
 
 void Resolver::operator()(BlockStatement& b) {
@@ -193,24 +243,31 @@ void Resolver::operator()(WhileStatement& w) {
 	m_InLoop = enclosingLoop;
 }
 
-void Resolver::operator()(BreakStatement&) {
+void Resolver::operator()(BreakStatement& b) {
 	if (!m_InLoop) {
-		throw std::runtime_error("break used outside of loop");
+		m_Context.ReportResolveError(b.BreakToken, "calling break outside of loop");
 	}
 }
 
 void Resolver::operator()(ReturnStatement& r) {
 	if (!m_InFunction) {
-		throw std::runtime_error("return used outside of function");
+		m_Context.ReportResolveError(r.ReturnToken, "Return used outside of Function");
 	}
+
 	if (r.ReturnExpr) {
 		Resolve(*r.ReturnExpr);
 	}
 }
 
 void Resolver::operator()(FunctionDecleration& fn) {
-	const size_t fnSlot = DeclareInCurrentScope(fn.Name);
-	fn.Slot = fnSlot;
+	const auto fnSlot = TryDeclareInCurrentScope(fn.Name, SymbolKind::Function);
+	if (!fnSlot) {
+		return;
+	}
+	fn.Slot = *fnSlot;
+
+	auto& meta = GetCurrentScope().Slots[fn.Name.Lexeme];
+	meta.Defined = true;
 
 	const bool enclosingFunction = m_InFunction;
 	m_InFunction = true;
@@ -220,10 +277,15 @@ void Resolver::operator()(FunctionDecleration& fn) {
 
 	for (const auto& param : fn.Parameters) {
 		if (fnScope.Slots.contains(param.Lexeme)) {
-			throw std::runtime_error("Duplicate function parameter: " + param.Lexeme);
+			m_Context.ReportResolveError(param, "Duplicate function parameter");
 		}
 		const size_t paramSlot = fnScope.LocalCount++;
-		fnScope.Slots[param.Lexeme].Slot = paramSlot;
+		auto& meta = fnScope.Slots[param.Lexeme];
+
+		meta.Slot = paramSlot;
+		meta.ReadCount = 0;
+		meta.Kind = SymbolKind::Parameter;
+		meta.Defined = true;
 	}
 
 	for (auto& stmt : fn.Body) {
@@ -234,6 +296,22 @@ void Resolver::operator()(FunctionDecleration& fn) {
 	EndScope();
 
 	m_InFunction = enclosingFunction;
+}
+
+void Resolver::operator()(ClassDecleration& classDecl) {
+	const auto classSlot = TryDeclareInCurrentScope(classDecl.Name, SymbolKind::Class);
+
+	if (!classSlot) {
+		return;
+	}
+
+	classDecl.Slot = *classSlot;
+	auto& meta = GetCurrentScope().Slots[classDecl.Name.Lexeme];
+	meta.Defined = true;
+
+	for (auto& method : classDecl.Methods) {
+		operator()(method);
+	}
 }
 
 }
