@@ -18,6 +18,8 @@
 #include "noct/parser/expression/LiteralNummifier.h"
 #include "noct/parser/expression/MakeExpression.h"
 
+#include "noct/parser/expression/expression_variants/Get.h"
+
 #include "noct/parser/statement/BlockStatement.h"
 #include "noct/parser/statement/ClassDecleration.h"
 #include "noct/parser/statement/FunctionDecleration.h"
@@ -287,8 +289,10 @@ StatementPtr Parser::ClassDecl() {
 	Consume(TokenType::LeftBrace, "Expected '{' after class name.");
 
 	while (Check(TokenType::Fn)) {
-		if (auto fnDecl { FunctionDecl() }; fnDecl) {
-			methods.push_back(std::move(std::get<FunctionDecleration>(fnDecl->Instruction)));
+		if (auto fnDeclStmt { FunctionDecl() }; fnDeclStmt) {
+			auto fnDecl { std::move(std::get<FunctionDecleration>(fnDeclStmt->Instruction)) };
+			fnDecl.Type = FunctionType::Method;
+			methods.push_back(std::move(fnDecl));
 			continue;
 		}
 		throw RuntimeError(GetCurrent(), "Method Decleration failed");
@@ -322,8 +326,10 @@ ExpressionPtr Parser::Assignment() {
 		Token equalOperator { GetPrevious() };
 		std::unique_ptr value { Assignment() };
 
-		if (auto var = std::get_if<Variable>(&expr->Value)) {
+		if (auto var { std::get_if<Variable>(&expr->Value) }) {
 			return make_expression<Assign>(var->Name, std::move(value));
+		} else if (auto get { std::get_if<Get>(&expr->Value) }) {
+			return make_expression<Set>(get->Name, std::move(get->Instance), std::move(value));
 		}
 
 		throw RuntimeError(equalOperator, "Invalid Assigment Target");
@@ -436,11 +442,18 @@ ExpressionPtr Parser::Call() {
 	using enum TokenType;
 	auto expr { IncDec() };
 
-	while (MatchCurrent(LeftParen)) {
-		auto paren { GetPrevious() };
-		auto args = GetArguments();
-		Consume(RightParen, "Expected ')' after arguments.");
-		expr = std::move(make_expression<Noct::Call>(std::move(expr), std::move(args), paren));
+	while (true) {
+		if (MatchCurrent(LeftParen)) {
+			auto paren { GetPrevious() };
+			auto args = GetArguments();
+			Consume(RightParen, "Expected ')' after arguments.");
+			expr = make_expression<Noct::Call>(std::move(expr), std::move(args), paren);
+		} else if (MatchCurrent(Dot)) {
+			Token name { Consume(Identifier, "Expected a property name after '.'.") };
+			expr = make_expression<Noct::Get>(std::move(expr), name);
+		} else {
+			break;
+		}
 	}
 
 	return expr;

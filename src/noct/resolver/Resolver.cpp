@@ -3,6 +3,8 @@
 #include "noct/Context.h"
 #include "noct/Logger.h"
 
+#include "noct/parser/expression/expression_variants/Get.h"
+
 #include "noct/parser/statement/ClassDecleration.h"
 
 namespace Noct {
@@ -146,6 +148,15 @@ void Resolver::operator()(Call& c) {
 	for (auto& arg : c.Arguments) {
 		Resolve(*arg);
 	}
+}
+
+void Resolver::operator()(Get& get) {
+	Resolve(*get.Instance);
+}
+
+void Resolver::operator()(Set& get) {
+	Resolve(*get.Value);
+	Resolve(*get.Instance);
 }
 
 void Resolver::operator()(Variable& v) {

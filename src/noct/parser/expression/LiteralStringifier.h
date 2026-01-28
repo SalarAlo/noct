@@ -44,9 +44,25 @@ struct LiteralStringifier {
 		return out;
 	}
 
-	std::string operator()(const ClassInstance& c) const {
+	std::string operator()(const ClassInstanceRef& c) const {
 		std::string out {};
-		out.append("instance of class ").append(c.ClassReference->Name);
+		out.append("instance ").append(c->ClassReference->Name).append("\n");
+		out.append("fields: {\n");
+		for (const auto& [name, val] : c->Fields) {
+			out.append("\t").append(name).append(": ").append(std::visit(*this, val)).append("\n");
+		}
+		out.append("}\n");
+
+		out.append("methods: {\n");
+		for (const auto& [name, val] : c->ClassReference->Methods) {
+			out.append("\t").append(name).append("(");
+
+			for (const auto& param : val->ParameterNames)
+				out.append(param.Lexeme).append(", ");
+
+			out.append(");\n");
+		}
+		out.append("}");
 		return out;
 	}
 };

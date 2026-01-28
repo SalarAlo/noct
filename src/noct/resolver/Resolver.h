@@ -47,17 +47,19 @@ public:
 
 	size_t GetGlobalLocalCount() const { return m_GlobalLocalCount; }
 
-	void operator()(Literal&);
-	void operator()(Variable&);
 	void operator()(Assign&);
 	void operator()(Binary&);
-	void operator()(Unary&);
-	void operator()(Logical&);
 	void operator()(Call&);
-	void operator()(Lambda&);
+	void operator()(Get&);
 	void operator()(Grouping&);
-	void operator()(Ternary&);
+	void operator()(Lambda&);
+	void operator()(Literal&);
+	void operator()(Logical&);
 	void operator()(Maybe&);
+	void operator()(Set&);
+	void operator()(Ternary&);
+	void operator()(Unary&);
+	void operator()(Variable&);
 
 	void operator()(ExpressionStatement&);
 	void operator()(PrintStatement&);

@@ -16,6 +16,7 @@
 #include "noct/lexer/Token.h"
 #include "noct/lexer/TokenType.h"
 
+#include "noct/parser/expression/ClassInstance.h"
 #include "noct/parser/expression/Expression.h"
 #include "noct/parser/expression/FunctionValue.h"
 #include "noct/parser/expression/LiteralBoolifier.h"
@@ -71,6 +72,18 @@ void Interpreter::operator()(const VariableDecleration& decl) {
 
 void Interpreter::operator()(const ClassDecleration& classDecl) {
 	ClassValueRef classValueRef { std::make_shared<ClassValue>(classDecl.Name.Lexeme) };
+
+	for (const auto& method : classDecl.Methods) {
+		FunctionValueRef value = std::make_shared<FunctionValue>(
+		    &method.Body,
+		    method.Parameters,
+		    method.Name,
+		    method.LocalCount,
+		    m_Env);
+
+		classValueRef->Methods.emplace(method.Name.Lexeme, std::move(value));
+	}
+
 	NoctObject obj { classValueRef };
 
 	m_Env->Define(classDecl.Slot, obj, true);
@@ -145,6 +158,31 @@ void Interpreter::operator()(const Literal& literal) {
 
 void Interpreter::operator()(const Grouping& group) {
 	Evaluate(*group.GroupExpr);
+}
+
+void Interpreter::operator()(const Get& get) {
+	Evaluate(*get.Instance);
+	auto instancePtr { std::get_if<ClassInstanceRef>(&m_Value) };
+
+	if (!instancePtr) {
+		throw RuntimeError(get.Name, "Only instances can have properties.");
+	}
+
+	m_Value = (*instancePtr)->Get(get.Name);
+}
+
+void Interpreter::operator()(const Set& set) {
+	Evaluate(*set.Instance);
+	auto instance = std::get_if<ClassInstanceRef>(&m_Value);
+	if (!instance) {
+		throw RuntimeError(set.Name, "Only instances can have properties.");
+	}
+
+	ClassInstanceRef inst = *instance;
+
+	Evaluate(*set.Value);
+
+	inst->Set(set.Name, m_Value);
 }
 
 void Interpreter::operator()(const Unary& unary) {
@@ -344,7 +382,14 @@ void Interpreter::operator()(const Call& exp) {
 	Evaluate(*exp.Callee);
 
 	auto fnPtr = std::get_if<FunctionValueRef>(&m_Value);
-	if (!fnPtr || !(*fnPtr)) {
+	auto classFn = std::get_if<ClassValueRef>(&m_Value);
+
+	if (classFn) {
+		m_Value = std::make_shared<ClassInstance>(*classFn);
+		return;
+	}
+
+	if (!fnPtr) {
 		throw RuntimeError(exp.Paren, "Can only call functions.");
 	}
 

@@ -4,4 +4,4 @@ set -e
 BUILD_DIR=build
 
 mkdir -p "$BUILD_DIR"
-cmake -S . -B "$BUILD_DIR" -G Ninja
+cmake -S . -B "$BUILD_DIR" -G Ninja -DCMAKE_BUILD_TYPE=Debug

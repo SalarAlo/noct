@@ -5,6 +5,7 @@
 #include <string>
 #include <variant>
 
+#include "noct/parser/expression/ClassInstanceFwd.h"
 #include "noct/parser/expression/FunctionValue.h"
 
 namespace Noct {
@@ -34,6 +35,10 @@ struct LiteralNumifier {
 
 	double operator()(const FunctionValueRef& f) const {
 		return f->ParameterNames.size();
+	}
+
+	double operator()(const ClassInstanceRef& f) const {
+		return 1;
 	}
 };
 }

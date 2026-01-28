@@ -3,7 +3,7 @@
 #include <string>
 #include <variant>
 
-#include "noct/parser/expression/ClassInstance.h"
+#include "noct/parser/expression/ClassInstanceFwd.h"
 #include "noct/parser/expression/ClassValue.h"
 #include "noct/parser/expression/FunctionValue.h"
 
@@ -33,7 +33,7 @@ struct LiteralBoolifier {
 		return true;
 	}
 
-	bool operator()(const ClassInstance&) const {
+	bool operator()(const ClassInstanceRef&) const {
 		return true;
 	}
 };

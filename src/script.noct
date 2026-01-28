@@ -1,7 +1,18 @@
-class serveOn {
-    fn some_name() { 
-    	return "Scones";
-    }
+class Flyer {
+  fn fly() {
+    print "flight simulator";
+  }
 }
 
-print serveOn;
+var x = Flyer();
+x.terry = "im the best programmer on earth";
+print x;
+x.terry = "chosen by god";
+
+fn a(self) {
+	print self.terry;
+}
+
+x.print_terry = a;
+x.print_terry(x);
+
