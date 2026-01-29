@@ -5,12 +5,15 @@
 #include "noct/Context.h"
 #include "noct/Environment.h"
 
+#include "noct/lexer/NoctObject.h"
 #include "noct/lexer/Token.h"
 
 #include "noct/parser/expression/Expression.h"
 #include "noct/parser/expression/ExpressionFwd.h"
+#include "noct/parser/expression/FunctionValueFactory.h"
+#include "noct/parser/expression/ICallable.h"
 
-#include "noct/parser/expression/expression_variants/Set.h"
+#include "noct/parser/expression/variants/Set.h"
 
 #include "noct/parser/statement/ClassDecleration.h"
 #include "noct/parser/statement/FunctionDecleration.h"
@@ -28,6 +31,7 @@ public:
 	void operator()(const Unary&);
 	void operator()(const Binary&);
 	void operator()(const Literal&);
+	void operator()(const This&);
 	void operator()(const Ternary&);
 	void operator()(const Grouping&);
 	void operator()(const Variable&);
@@ -53,6 +57,8 @@ public:
 	void SetGlobalEnvironment(const std::shared_ptr<Environment>& env);
 	void Interpret(const StatementPtrVector& statements);
 
+	NoctObject InvokeFunction(FunctionValue& fn, const std::vector<NoctObject>& args, const Token& callSite);
+
 	bool IsEqual(const NoctObject& left, const NoctObject& right);
 
 	void EnsureNumbers(const Token& op, double* operand);
@@ -62,6 +68,19 @@ public:
 
 	void Evaluate(Expression& exp);
 	void Execute(Statement& exp);
+
+private:
+	struct EnvGuard {
+		Interpreter& I;
+		std::shared_ptr<Environment> saved;
+		explicit EnvGuard(Interpreter& I, std::shared_ptr<Environment> next)
+		    : I(I)
+		    , saved(I.m_Env) { I.m_Env = std::move(next); }
+		~EnvGuard() { I.m_Env = std::move(saved); }
+
+		EnvGuard(const EnvGuard&) = delete;
+		EnvGuard& operator=(const EnvGuard&) = delete;
+	};
 
 private:
 	Context& m_Context;

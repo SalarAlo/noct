@@ -34,3 +34,41 @@ TEST_CASE("read variable before assignment") {
 TEST_CASE("function called with wrong number of args") {
 	ExpectRuntimeError("fn f(a, b) { return a; } f(1);");
 }
+
+TEST_CASE("read undefined property") {
+	ExpectRuntimeError(R"(
+		class A {}
+		var a = A();
+		print a.missing;
+	)");
+}
+
+TEST_CASE("set instance method is forbidden") {
+	ExpectRuntimeError(R"(
+		class A { fn f() { return 1; } }
+		var a = A();
+		a.f = 3;
+	)");
+}
+
+TEST_CASE("only instances can have properties - get on non-instance") {
+	ExpectRuntimeError(R"(
+		var x = 123;
+		print x.y;
+	)");
+}
+
+TEST_CASE("only instances can have properties - set on non-instance") {
+	ExpectRuntimeError(R"(
+		var x = 123;
+		x.y = 7;
+	)");
+}
+
+TEST_CASE("calling unbound method from class is not allowed") {
+	ExpectRuntimeError(R"(
+		class A { fn f() { return 1; } }
+		var c = A;      // class value
+		c.f();          // should fail: only instances can have properties / call
+	)");
+}

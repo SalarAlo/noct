@@ -3,7 +3,7 @@
 #include "noct/Context.h"
 #include "noct/Logger.h"
 
-#include "noct/parser/expression/expression_variants/Get.h"
+#include "noct/parser/expression/variants/Get.h"
 
 #include "noct/parser/statement/ClassDecleration.h"
 
@@ -20,7 +20,7 @@ void Resolver::Resolve(const StatementPtrVector& statements) {
 		Resolve(*stmt);
 	}
 
-	m_GlobalLocalCount = GetCurrentScope().LocalCount;
+	m_GlobalFrameSize = GetCurrentScope().NextSlot;
 	EndScope();
 }
 
@@ -34,6 +34,15 @@ void Resolver::Resolve(Expression& expr) {
 
 void Resolver::Resolve(Statement& stmt) {
 	std::visit(*this, stmt.Instruction);
+}
+
+void Resolver::operator()(This& t) {
+	if (!m_InClass) {
+		m_Context.ReportResolveError(t.Keyword, "Cannot use 'this' outside of class");
+		return;
+	}
+
+	TryResolveVariableUse(t.Keyword, t.Slot, t.Depth, true);
 }
 
 void Resolver::BeginScope() {
@@ -75,7 +84,7 @@ std::optional<size_t> Resolver::TryDeclareInCurrentScope(const Token& name, Symb
 		return {};
 	}
 
-	const size_t slot = scope.LocalCount++;
+	const size_t slot = scope.NextSlot++;
 	scope.Slots[name.Lexeme].Slot = slot;
 	scope.Slots[name.Lexeme].ReadCount = 0;
 	scope.Slots[name.Lexeme].Defined = false;
@@ -181,7 +190,7 @@ void Resolver::operator()(Lambda& lambda) {
 			continue;
 		}
 
-		const size_t paramSlot = lambdaScope.LocalCount++;
+		const size_t paramSlot = lambdaScope.NextSlot++;
 
 		auto& meta = lambdaScope.Slots[param.Lexeme];
 		meta.Slot = paramSlot;
@@ -194,7 +203,7 @@ void Resolver::operator()(Lambda& lambda) {
 		Resolve(*stmt);
 	}
 
-	lambda.LocalCount = lambdaScope.LocalCount;
+	lambda.FrameSize = lambdaScope.NextSlot;
 	EndScope();
 
 	m_InFunction = enclosingFunction;
@@ -232,7 +241,7 @@ void Resolver::operator()(BlockStatement& b) {
 		Resolve(*stmt);
 	}
 
-	b.LocalCount = blockScope.LocalCount;
+	b.FrameSize = blockScope.NextSlot;
 	EndScope();
 }
 
@@ -272,39 +281,21 @@ void Resolver::operator()(ReturnStatement& r) {
 
 void Resolver::operator()(FunctionDecleration& fn) {
 	const auto fnSlot = TryDeclareInCurrentScope(fn.Name, SymbolKind::Function);
-	if (!fnSlot) {
+	if (!fnSlot)
 		return;
-	}
 	fn.Slot = *fnSlot;
 
-	auto& meta = GetCurrentScope().Slots[fn.Name.Lexeme];
-	meta.Defined = true;
+	GetCurrentScope().Slots[fn.Name.Lexeme].Defined = true;
 
 	const bool enclosingFunction = m_InFunction;
 	m_InFunction = true;
 
-	BeginScope();
-	auto& fnScope = GetCurrentScope();
-
-	for (const auto& param : fn.Parameters) {
-		if (fnScope.Slots.contains(param.Lexeme)) {
-			m_Context.ReportResolveError(param, "Duplicate function parameter");
-		}
-		const size_t paramSlot = fnScope.LocalCount++;
-		auto& meta = fnScope.Slots[param.Lexeme];
-
-		meta.Slot = paramSlot;
-		meta.ReadCount = 0;
-		meta.Kind = SymbolKind::Parameter;
-		meta.Defined = true;
-	}
-
-	for (auto& stmt : fn.Body) {
-		Resolve(*stmt);
-	}
-
-	fn.LocalCount = fnScope.LocalCount;
-	EndScope();
+	ResolveCallableBody(
+	    fn.Parameters,
+	    fn.Body,
+	    fn.FrameSize,
+	    false,
+	    fn.ClosureSize);
 
 	m_InFunction = enclosingFunction;
 }
@@ -320,9 +311,73 @@ void Resolver::operator()(ClassDecleration& classDecl) {
 	auto& meta = GetCurrentScope().Slots[classDecl.Name.Lexeme];
 	meta.Defined = true;
 
+	const bool enclosingClass = m_InClass;
+	m_InClass = true;
+
 	for (auto& method : classDecl.Methods) {
-		operator()(method);
+		ResolveMethod(method);
 	}
+
+	m_InClass = enclosingClass;
+}
+
+void Resolver::ResolveMethod(FunctionDecleration& fn) {
+	const bool enclosingFunction = m_InFunction;
+	m_InFunction = true;
+
+	ResolveCallableBody(
+	    fn.Parameters,
+	    fn.Body,
+	    fn.FrameSize,
+	    true,
+	    fn.ClosureSize);
+
+	m_InFunction = enclosingFunction;
+}
+
+void Resolver::ResolveCallableBody(
+    std::vector<Token>& params,
+    StatementPtrVector& body,
+    size_t& outFrameSize,
+    bool injectThis,
+    size_t& outClosureSize) {
+
+	outClosureSize = 0;
+	std::optional<ScopeGuard> closure;
+	if (injectThis) {
+		closure.emplace(*this);
+		auto& closureScope = GetCurrentScope();
+
+		auto& meta = closureScope.Slots["this"];
+		meta.Slot = closureScope.NextSlot++;
+		meta.Defined = true;
+		meta.ReadCount = 0;
+		meta.Kind = SymbolKind::Parameter;
+
+		outClosureSize = closureScope.NextSlot;
+	}
+
+	ScopeGuard call(*this);
+	auto& callScope = GetCurrentScope();
+
+	for (const auto& param : params) {
+		if (callScope.Slots.contains(param.Lexeme)) {
+			m_Context.ReportResolveError(param, "Duplicate function parameter");
+			continue;
+		}
+
+		auto& meta = callScope.Slots[param.Lexeme];
+		meta.Slot = callScope.NextSlot++;
+		meta.ReadCount = 0;
+		meta.Kind = SymbolKind::Parameter;
+		meta.Defined = true;
+	}
+
+	for (auto& stmt : body) {
+		Resolve(*stmt);
+	}
+
+	outFrameSize = callScope.NextSlot;
 }
 
 }

@@ -9,11 +9,13 @@
 #include "noct/lexer/NoctObject.h"
 #include "noct/lexer/Token.h"
 
+#include "noct/parser/expression/BoundMethod.h"
+#include "noct/parser/expression/ClassInstanceFwd.h"
 #include "noct/parser/expression/ClassValue.h"
 
 namespace Noct {
 
-struct ClassInstance {
+struct ClassInstance : std::enable_shared_from_this<ClassInstance> {
 	ClassValueRef ClassReference;
 	std::unordered_map<std::string, NoctObject> Fields {};
 
@@ -25,17 +27,14 @@ struct ClassInstance {
 	}
 
 	NoctObject Get(const Token& name) {
+		if (auto field = Fields.find(name.Lexeme); field != Fields.end())
+			return field->second;
 
-		if (!ClassReference) {
-			throw RuntimeError(name, "Internal error: ClassInstance has no ClassReference");
-		}
+		if (auto method = ClassReference->Methods.find(name.Lexeme);
+		    method != ClassReference->Methods.end()) {
 
-		if (auto iter { Fields.find(name.Lexeme) }; iter != Fields.end()) {
-			return iter->second;
-		}
-
-		if (auto iter = ClassReference->Methods.find(name.Lexeme); iter != ClassReference->Methods.end()) {
-			return iter->second;
+			CallableRef bound = std::static_pointer_cast<ICallable>(std::make_shared<BoundMethod>(shared_from_this(), method->second));
+			return NoctObject { bound };
 		}
 
 		throw RuntimeError(name, fmt::format("Undefined property {}", name.Lexeme));

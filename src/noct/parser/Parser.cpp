@@ -18,7 +18,8 @@
 #include "noct/parser/expression/LiteralNummifier.h"
 #include "noct/parser/expression/MakeExpression.h"
 
-#include "noct/parser/expression/expression_variants/Get.h"
+#include "noct/parser/expression/variants/Get.h"
+#include "noct/parser/expression/variants/This.h"
 
 #include "noct/parser/statement/BlockStatement.h"
 #include "noct/parser/statement/ClassDecleration.h"
@@ -192,7 +193,7 @@ StatementPtr Parser::BreakStmt() {
 StatementPtr Parser::ForStmt() {
 	using enum TokenType;
 
-	Consume(TokenType::LeftParen, "Left Parenthesis '(' expected after while statement)");
+	Consume(TokenType::LeftParen, "Missing '(' expected after while statement)");
 	StatementPtr initialiser { nullptr };
 
 	if (MatchCurrent(TokenType::Semicolon)) {
@@ -206,13 +207,13 @@ StatementPtr Parser::ForStmt() {
 	if (!Check(TokenType::Semicolon)) {
 		condition = Expr();
 	}
-	Consume(TokenType::Semicolon, "Expected ';' after loop condition");
+	Consume(TokenType::Semicolon, "Missing ';' after loop condition");
 
 	ExpressionPtr increment { nullptr };
 	if (!Check(RightParen)) {
 		increment = Expr();
 	}
-	Consume(TokenType::RightParen, "Expected ')' after loop increment");
+	Consume(TokenType::RightParen, "Missing ')' after loop increment");
 
 	auto body = Stmt();
 
@@ -291,10 +292,10 @@ StatementPtr Parser::ClassDecl() {
 	while (Check(TokenType::Fn)) {
 		if (auto fnDeclStmt { FunctionDecl() }; fnDeclStmt) {
 			auto fnDecl { std::move(std::get<FunctionDecleration>(fnDeclStmt->Instruction)) };
-			fnDecl.Type = FunctionType::Method;
 			methods.push_back(std::move(fnDecl));
 			continue;
 		}
+
 		throw RuntimeError(GetCurrent(), "Method Decleration failed");
 	}
 
@@ -562,6 +563,10 @@ ExpressionPtr Parser::Primary() {
 		return make_expression<Variable>(GetPrevious());
 	}
 
+	if (MatchCurrent(TokenType::This)) {
+		return make_expression<This>(GetPrevious());
+	}
+
 	throw RuntimeError(GetCurrent(), "Expected Expression");
 }
 
@@ -624,11 +629,11 @@ bool Parser::IsAtEnd() const {
 }
 
 Token Parser::Advance() {
-	if (IsAtEnd()) {
-		return GetPrevious();
+	if (!IsAtEnd()) {
+		m_Current++;
 	}
 
-	return m_Tokens[m_Current++];
+	return m_Tokens[m_Current];
 }
 
 Token Parser::Consume(TokenType type, std::string_view msg) {
@@ -640,9 +645,6 @@ Token Parser::Consume(TokenType type, std::string_view msg) {
 }
 
 Token Parser::GetCurrent() const {
-	if (IsAtEnd())
-		return GetPrevious();
-
 	return m_Tokens[m_Current];
 }
 

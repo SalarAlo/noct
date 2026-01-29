@@ -89,3 +89,23 @@ TEST_CASE("empty ternary") {
 TEST_CASE("block where expression expected") {
 	ExpectParseError("print { 1; };");
 }
+
+TEST_CASE("class missing body") {
+	ExpectParseError("class A ");
+}
+
+TEST_CASE("class missing closing brace") {
+	ExpectParseError("class A { fn f() { return 1; }");
+}
+
+TEST_CASE("class missing method keyword fn") {
+	ExpectParseError("class A { f() { return 1; } }");
+}
+
+TEST_CASE("property access missing identifier") {
+	ExpectParseError("var a = 1; print a.;");
+}
+
+TEST_CASE("property set missing rhs") {
+	ExpectParseError("class A {} var a = A(); a.x = ;");
+}

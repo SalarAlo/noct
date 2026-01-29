@@ -66,7 +66,7 @@ RunResult RunFromString(Context& context, std::string_view contents) {
 	}
 
 	Interpreter interpreter { context };
-	interpreter.SetGlobalEnvironment(std::make_shared<Environment>(resolver.GetGlobalLocalCount()));
+	interpreter.SetGlobalEnvironment(std::make_shared<Environment>(resolver.GetGlobalFrameSize()));
 	interpreter.Interpret(statements);
 
 	if (context.HadRuntimeError) {

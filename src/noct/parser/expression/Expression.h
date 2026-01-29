@@ -3,19 +3,20 @@
 #include <utility>
 #include <variant>
 
-#include "noct/parser/expression/expression_variants/Assign.h"
-#include "noct/parser/expression/expression_variants/Binary.h"
-#include "noct/parser/expression/expression_variants/Call.h"
-#include "noct/parser/expression/expression_variants/Get.h"
-#include "noct/parser/expression/expression_variants/Grouping.h"
-#include "noct/parser/expression/expression_variants/Lambda.h"
-#include "noct/parser/expression/expression_variants/Literal.h"
-#include "noct/parser/expression/expression_variants/Logical.h"
-#include "noct/parser/expression/expression_variants/Maybe.h"
-#include "noct/parser/expression/expression_variants/Set.h"
-#include "noct/parser/expression/expression_variants/Ternary.h"
-#include "noct/parser/expression/expression_variants/Unary.h"
-#include "noct/parser/expression/expression_variants/Variable.h"
+#include "noct/parser/expression/variants/Assign.h"
+#include "noct/parser/expression/variants/Binary.h"
+#include "noct/parser/expression/variants/Call.h"
+#include "noct/parser/expression/variants/Get.h"
+#include "noct/parser/expression/variants/Grouping.h"
+#include "noct/parser/expression/variants/Lambda.h"
+#include "noct/parser/expression/variants/Literal.h"
+#include "noct/parser/expression/variants/Logical.h"
+#include "noct/parser/expression/variants/Maybe.h"
+#include "noct/parser/expression/variants/Set.h"
+#include "noct/parser/expression/variants/Ternary.h"
+#include "noct/parser/expression/variants/This.h"
+#include "noct/parser/expression/variants/Unary.h"
+#include "noct/parser/expression/variants/Variable.h"
 
 namespace Noct {
 
@@ -32,6 +33,7 @@ struct Expression {
 	    Maybe,
 	    Set,
 	    Ternary,
+	    This,
 	    Unary,
 	    Variable>;
 

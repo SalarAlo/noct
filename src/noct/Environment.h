@@ -13,9 +13,9 @@ struct EnvironmentVariable {
 
 class Environment {
 public:
-	Environment(size_t size, std::shared_ptr<Environment> papi = nullptr)
-	    : m_DominicanPapi(papi)
-	    , m_Values(size, EnvironmentVariable {}) {
+	Environment(size_t frameSize, std::shared_ptr<Environment> papi = nullptr)
+	    : m_Papa(papi)
+	    , m_Values(frameSize, EnvironmentVariable {}) {
 	}
 
 	void Define(size_t slot, const NoctObject& value, bool initialised);
@@ -24,7 +24,7 @@ public:
 
 private:
 	std::vector<EnvironmentVariable> m_Values {};
-	std::shared_ptr<Environment> m_DominicanPapi {};
+	std::shared_ptr<Environment> m_Papa {};
 };
 
 }

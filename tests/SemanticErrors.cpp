@@ -45,3 +45,15 @@ TEST_CASE("function declared twice in same scope") {
 TEST_CASE("parameter shadows parameter in lambda") {
 	ExpectSemanticError("var f = fn (a, a) { return a; };");
 }
+
+TEST_CASE("this outside of class") {
+	ExpectSemanticError(R"(
+		fn f() { print this; }
+	)");
+}
+
+TEST_CASE("this at top-level") {
+	ExpectSemanticError(R"(
+		print this;
+	)");
+}

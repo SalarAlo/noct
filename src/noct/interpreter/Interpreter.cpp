@@ -16,11 +16,13 @@
 #include "noct/lexer/Token.h"
 #include "noct/lexer/TokenType.h"
 
-#include "noct/parser/expression/ClassInstance.h"
+#include "noct/parser/expression/ClassCallable.h"
 #include "noct/parser/expression/Expression.h"
 #include "noct/parser/expression/FunctionValue.h"
+#include "noct/parser/expression/ICallable.h"
 #include "noct/parser/expression/LiteralBoolifier.h"
 #include "noct/parser/expression/LiteralStringifier.h"
+#include "noct/parser/expression/UserFunctionCallable.h"
 
 #include "noct/parser/statement/BlockStatement.h"
 #include "noct/parser/statement/BreakStatement.h"
@@ -74,32 +76,22 @@ void Interpreter::operator()(const ClassDecleration& classDecl) {
 	ClassValueRef classValueRef { std::make_shared<ClassValue>(classDecl.Name.Lexeme) };
 
 	for (const auto& method : classDecl.Methods) {
-		FunctionValueRef value = std::make_shared<FunctionValue>(
-		    &method.Body,
-		    method.Parameters,
-		    method.Name,
-		    method.LocalCount,
-		    m_Env);
 
+		auto fnValueFactory { FunctionValueFactory { m_Env } };
+		FunctionValueRef value = fnValueFactory(method);
 		classValueRef->Methods.emplace(method.Name.Lexeme, std::move(value));
 	}
 
-	NoctObject obj { classValueRef };
+	CallableRef classCallable = std::make_shared<ClassCallable>(classValueRef);
 
-	m_Env->Define(classDecl.Slot, obj, true);
+	m_Env->Define(classDecl.Slot, NoctObject { classCallable }, true);
 }
 
 void Interpreter::operator()(const BlockStatement& blockStmt) {
-	auto previous = m_Env;
-	auto local = std::make_shared<Environment>(blockStmt.LocalCount, previous);
-
-	auto saved = m_Env;
-	m_Env = local;
-
+	auto local = std::make_shared<Environment>(blockStmt.FrameSize, m_Env);
+	EnvGuard g(*this, local);
 	for (const auto& stmt : blockStmt.Statements)
 		Execute(*stmt);
-
-	m_Env = saved;
 }
 
 void Interpreter::operator()(const BreakStatement&) {
@@ -140,20 +132,17 @@ void Interpreter::operator()(const IfStatement& ifStmt) {
 }
 
 void Interpreter::operator()(FunctionDecleration& fn) {
-	NoctObject value {
-		std::make_shared<FunctionValue>(
-		    &fn.Body,
-		    fn.Parameters,
-		    fn.Name,
-		    fn.LocalCount,
-		    m_Env)
-	};
-
-	m_Env->Define(fn.Slot, value, true);
+	FunctionValueRef f = FunctionValueFactory { m_Env }(fn);
+	CallableRef callable = std::make_shared<UserFunctionCallable>(f);
+	m_Env->Define(fn.Slot, NoctObject { callable }, true);
 }
 
 void Interpreter::operator()(const Literal& literal) {
 	m_Value = literal.Value;
+}
+
+void Interpreter::operator()(const This& expr) {
+	m_Value = m_Env->Get(expr.Slot, expr.Depth);
 }
 
 void Interpreter::operator()(const Grouping& group) {
@@ -235,13 +224,10 @@ void Interpreter::operator()(const Maybe&) {
 	m_Value = static_cast<bool>(dis(rng));
 }
 
-void Interpreter::operator()(const Lambda& lam) {
-	m_Value = std::make_shared<FunctionValue>(
-	    &lam.Body,
-	    lam.Parameters,
-	    std::nullopt,
-	    lam.LocalCount,
-	    m_Env);
+void Interpreter::operator()(const Lambda& lambda) {
+	FunctionValueRef f = FunctionValueFactory { m_Env }(lambda);
+	CallableRef callable = std::make_shared<UserFunctionCallable>(f);
+	m_Value = NoctObject { callable };
 }
 
 void Interpreter::operator()(const Binary& binary) {
@@ -381,48 +367,28 @@ void Interpreter::operator()(const Logical& exp) {
 void Interpreter::operator()(const Call& exp) {
 	Evaluate(*exp.Callee);
 
-	auto fnPtr = std::get_if<FunctionValueRef>(&m_Value);
-	auto classFn = std::get_if<ClassValueRef>(&m_Value);
-
-	if (classFn) {
-		m_Value = std::make_shared<ClassInstance>(*classFn);
-		return;
+	auto callablePtr = std::get_if<CallableRef>(&m_Value);
+	if (!callablePtr || !*callablePtr) {
+		throw RuntimeError(exp.Paren, "Can only call functions and classes.");
 	}
 
-	if (!fnPtr) {
-		throw RuntimeError(exp.Paren, "Can only call functions.");
+	CallableRef callee = *callablePtr;
+
+	std::vector<NoctObject> args;
+	args.reserve(exp.Arguments.size());
+	for (auto& a : exp.Arguments) {
+		Evaluate(*a);
+		args.push_back(m_Value);
 	}
 
-	auto fn = *fnPtr;
-
-	auto callArgumentsAmount { exp.Arguments.size() };
-	auto expectedFnParametersAmount { fn->ParameterNames.size() };
-
-	if (callArgumentsAmount != expectedFnParametersAmount) {
-		auto errorMsg { fmt::format("Function expects {} arguments but received {}", expectedFnParametersAmount, callArgumentsAmount) };
-		throw RuntimeError(exp.Paren, errorMsg);
+	if (args.size() != callee->Arity()) {
+		throw RuntimeError(exp.Paren,
+		    fmt::format("{} expects {} arguments but received {}",
+		        callee->Name(), callee->Arity(), args.size()));
 	}
 
-	auto local = std::make_shared<Environment>(fn->LocalCount, fn->Closure);
-
-	for (size_t i = 0; i < expectedFnParametersAmount; i++) {
-		Evaluate(*exp.Arguments[i]);
-		local->Define(i, m_Value, true);
-	}
-
-	auto saved = m_Env;
-	m_Env = local;
-
-	for (const auto& stmt : *fn->Body) {
-		try {
-			Execute(*stmt);
-		} catch (const ReturnException& e) {
-			m_Value = e.GetObject();
-			break;
-		}
-	}
-
-	m_Env = saved;
+	CallContext ctx { *this, exp.Paren };
+	m_Value = callee->Call(ctx, args);
 }
 
 void Interpreter::Evaluate(Expression& exp) {
@@ -455,4 +421,35 @@ bool Interpreter::IsEqual(const NoctObject& left, const NoctObject& right) {
 	},
 	    left);
 }
+
+NoctObject Interpreter::InvokeFunction(FunctionValue& fn,
+    const std::vector<NoctObject>& args,
+    const Token& callSite) {
+
+	const auto expectedAmount = fn.ParameterNames.size();
+	if (args.size() != expectedAmount) {
+		throw RuntimeError(callSite,
+		    fmt::format("Function expects {} arguments but received {}",
+		        expectedAmount, args.size()));
+	}
+
+	auto local = std::make_shared<Environment>(fn.FrameSize, fn.Closure);
+
+	for (size_t i = 0; i < expectedAmount; ++i)
+		local->Define(i, args[i], true);
+
+	EnvGuard guard(*this, local);
+
+	NoctObject result { std::monostate {} };
+
+	try {
+		for (const auto& stmt : *fn.Body)
+			Execute(*stmt);
+	} catch (ReturnException& ret) {
+		result = ret.GetObject();
+	}
+
+	return result;
+}
+
 }

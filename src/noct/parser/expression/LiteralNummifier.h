@@ -6,7 +6,7 @@
 #include <variant>
 
 #include "noct/parser/expression/ClassInstanceFwd.h"
-#include "noct/parser/expression/FunctionValue.h"
+#include "noct/parser/expression/ICallable.h"
 
 namespace Noct {
 struct LiteralNumifier {
@@ -33,12 +33,11 @@ struct LiteralNumifier {
 		return 0;
 	}
 
-	double operator()(const FunctionValueRef& f) const {
-		return f->ParameterNames.size();
-	}
-
 	double operator()(const ClassInstanceRef& f) const {
 		return 1;
+	}
+	double operator()(const CallableRef& f) const {
+		return f->Arity();
 	}
 };
 }

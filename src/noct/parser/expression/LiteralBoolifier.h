@@ -4,8 +4,7 @@
 #include <variant>
 
 #include "noct/parser/expression/ClassInstanceFwd.h"
-#include "noct/parser/expression/ClassValue.h"
-#include "noct/parser/expression/FunctionValue.h"
+#include "noct/parser/expression/ICallableFwd.h"
 
 namespace Noct {
 struct LiteralBoolifier {
@@ -25,11 +24,7 @@ struct LiteralBoolifier {
 		return false;
 	}
 
-	bool operator()(const FunctionValueRef&) const {
-		return true;
-	}
-
-	bool operator()(const ClassValueRef&) const {
+	bool operator()(const CallableRef&) const {
 		return true;
 	}
 

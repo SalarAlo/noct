@@ -30,6 +30,7 @@ add_executable(NoctTests
 	tests/Functions.cpp
 	tests/LogicAndControlFlow.cpp
 	tests/VariablesAndScope.cpp
+	tests/ClassesAndInstances.cpp
 )
 target_include_directories(NoctTests PRIVATE vendor)
 target_link_libraries(NoctTests PRIVATE NoctLib)
