@@ -1,7 +1,7 @@
 #include <doctest/doctest.h>
 
-#include "noct/Context.h"
-#include "noct/Run.h"
+#include "Context.h"
+#include "Run.h"
 
 template <typename T>
 static T RunAndGet(std::string_view src) {
@@ -36,6 +36,13 @@ TEST_CASE("unary minus") {
 
 TEST_CASE("division") {
 	CHECK(RunAndGet<double>("8 / 2;") == 4.0);
+}
+
+TEST_CASE("modulo by zero is runtime error") {
+	Noct::Context ctx {};
+	ctx.LoggingEnabled = false;
+	Noct::RunResult r = RunFromString(ctx, "8 % 0;");
+	CHECK(r.HadRuntimeError);
 }
 
 TEST_CASE("mixed operations") {

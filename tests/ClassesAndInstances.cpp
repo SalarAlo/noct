@@ -1,7 +1,7 @@
 #include <doctest/doctest.h>
 
-#include "noct/Context.h"
-#include "noct/Run.h"
+#include "Context.h"
+#include "Run.h"
 
 template <typename T>
 static T RunAndGet(std::string_view src) {
@@ -68,6 +68,17 @@ TEST_CASE("method mutation persists on instance") {
 		x.setX(42);
 		x.getX();
 	)") == 42.0);
+}
+
+TEST_CASE("compound assignment works on fields") {
+	CHECK(RunAndGet<double>(R"(
+		class A {}
+		var a = A();
+		a.x = 4;
+		a.x += 3;
+		a.x -= 2;
+		a.x;
+	)") == 5.0);
 }
 
 TEST_CASE("method can call another method") {

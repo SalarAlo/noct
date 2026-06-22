@@ -1,0 +1,14 @@
+#pragma once
+#include <memory>
+#include <utility>
+
+#include "parser/expression/ExpressionFwd.h"
+
+namespace Noct {
+
+template <typename T, typename... Args>
+ExpressionPtr make_expression(Args&&... args) {
+	return std::make_unique<Expression>(T { std::forward<Args>(args)... });
+}
+
+}

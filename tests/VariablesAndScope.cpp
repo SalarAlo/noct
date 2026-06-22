@@ -1,7 +1,7 @@
 #include <doctest/doctest.h>
 
-#include "noct/Context.h"
-#include "noct/Run.h"
+#include "Context.h"
+#include "Run.h"
 
 template <typename T>
 static T RunAndGet(std::string_view src) {
@@ -21,6 +21,10 @@ TEST_CASE("variable read") {
 
 TEST_CASE("reassignment") {
 	CHECK(RunAndGet<double>("var x = 1; x = x + 3; x;") == 4.0);
+}
+
+TEST_CASE("compound assignment") {
+	CHECK(RunAndGet<double>("var x = 1; x += 3; x -= 2; x;") == 2.0);
 }
 
 TEST_CASE("inner scope sees outer") {

@@ -1,7 +1,7 @@
 #include <doctest/doctest.h>
 
-#include "noct/Context.h"
-#include "noct/Run.h"
+#include "Context.h"
+#include "Run.h"
 
 using namespace Noct;
 
